@@ -1,0 +1,11 @@
+@import './theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background-color: rgb(var(--color-surface));
+  color: rgb(var(--color-text));
+}
