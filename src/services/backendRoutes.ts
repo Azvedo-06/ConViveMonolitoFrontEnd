@@ -1,24 +1,55 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
+export enum Role {
+  USER = 'USER',
+  ORGANIZER = 'ORGANIZER',
+  ADMIN = 'ADMIN',
+}
+
+export interface UserResponseDto {
+  id: number;
+  name: string;
+  cpf: string;
+  phone: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+}
+
 export const backendRoutes = {
   healthcheck: '/',
   login: '/auth/login',
   createUser: '/users',
   me: '/users/me',
+  updateMe: '/users/me',
   adminArea: '/admin',
   usersAdminList: '/users',
+  events: '/events',
+  eventDetails: (id: string | number) => `/events/${id}`,
+  eventParticipants: (id: string | number) => `/events/${id}/participants`,
+  joinEvent: (id: string | number) => `/events/${id}/join`,
+  uploadEventImage: (id: string | number) => `/events/${id}/upload`,
 } as const;
 
 export async function backendFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const token = localStorage.getItem('token');
+  const headers = new Headers(options.headers);
+
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  // Only set Content-Type to JSON if it's not FormData
+  if (!(options.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
     ...options,
+    headers,
   });
 
   if (!response.ok) {
@@ -30,8 +61,14 @@ export async function backendFetch<T>(
       const textMessage = await response.text();
       errorMessage = textMessage || errorMessage;
     }
-    throw new Error(errorMessage);
+    throw new Error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
+  }
+
+  // If response is 204 No Content, return empty object or null
+  if (response.status === 204) {
+    return {} as T;
   }
 
   return (await response.json()) as T;
 }
+
