@@ -1,15 +1,17 @@
-export type CityTheme = 'campo-mourao' | 'mambore';
+export type CityTheme = string;
 
 export type CityConfig = {
   id: CityTheme;
   label: string;
   theme: CityTheme;
-  accentClassName: string;
+  accentClassName?: string;
   imageUrl: string;
   imageFallbackUrl: string;
   description: string;
   tags: string[];
   spotlight: string;
+  colorPrimary?: string;
+  colorSecondary?: string;
 };
 
 export const cityOptions: CityConfig[] = [
@@ -24,6 +26,8 @@ export const cityOptions: CityConfig[] = [
     description: 'Feiras, cursos rápidos e eventos com forte circulação urbana e público diversificado.',
     tags: ['cultura', 'cursos', 'eventos gratuitos'],
     spotlight: 'Boa para quem quer alcance maior e variedade de público.',
+    colorPrimary: '46 125 50',
+    colorSecondary: '102 187 106',
   },
   {
     id: 'mambore',
@@ -36,9 +40,24 @@ export const cityOptions: CityConfig[] = [
     description: 'Programação comunitária, cursos e atividades mais próximas da rotina local.',
     tags: ['comunidade', 'atividades', 'agenda local'],
     spotlight: 'Boa para quem quer conversa mais próxima e comunicação local.',
+    colorPrimary: '216 67 21',
+    colorSecondary: '255 138 101',
   },
 ];
 
-export function applyCityTheme(theme: CityTheme) {
-  document.documentElement.setAttribute('data-city-theme', theme);
+export function applyCityTheme(themeOrCity: string | CityConfig) {
+  if (typeof themeOrCity === 'string') {
+    document.documentElement.setAttribute('data-city-theme', themeOrCity);
+    if (themeOrCity === 'campo-mourao') {
+      document.documentElement.style.setProperty('--color-primary', '46 125 50');
+      document.documentElement.style.setProperty('--color-secondary', '102 187 106');
+    } else if (themeOrCity === 'mambore') {
+      document.documentElement.style.setProperty('--color-primary', '216 67 21');
+      document.documentElement.style.setProperty('--color-secondary', '255 138 101');
+    }
+  } else {
+    document.documentElement.setAttribute('data-city-theme', themeOrCity.theme);
+    document.documentElement.style.setProperty('--color-primary', themeOrCity.colorPrimary || '46 125 50');
+    document.documentElement.style.setProperty('--color-secondary', themeOrCity.colorSecondary || '102 187 106');
+  }
 }

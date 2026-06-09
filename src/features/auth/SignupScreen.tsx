@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { type CityTheme, cityOptions } from '../../theme/cityTheme';
+import { type CityTheme, cityOptions, type CityConfig } from '../../theme/cityTheme';
 import { backendFetch, backendRoutes } from '../../services/backendRoutes';
 
 type SignupScreenProps = {
   city?: CityTheme;
+  cities?: CityConfig[];
   onBack: () => void;
   onSignupAsUser?: () => void;
   onSignupAsOrganizer?: () => void;
@@ -11,10 +12,11 @@ type SignupScreenProps = {
 
 export type SignupType = 'user' | 'organizer' | null;
 
-export function SignupScreen({ city, onBack, onSignupAsUser, onSignupAsOrganizer }: SignupScreenProps) {
+export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSignupAsOrganizer }: SignupScreenProps) {
   const [signupType, setSignupType] = useState<SignupType>(null);
   const [selectedCityId, setSelectedCityId] = useState<CityTheme | null>(city ?? null);
-  const selectedCity = cityOptions.find((option) => option.id === selectedCityId);
+  const currentCities = cities.length > 0 ? cities : cityOptions;
+  const selectedCity = currentCities.find((option) => option.id === selectedCityId);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -167,7 +169,7 @@ export function SignupScreen({ city, onBack, onSignupAsUser, onSignupAsOrganizer
 
               <div className="p-6 md:p-10">
                 <div className="grid gap-4 md:grid-cols-2">
-                  {cityOptions.map((option) => (
+                  {currentCities.map((option) => (
                     <button
                       key={option.id}
                       type="button"

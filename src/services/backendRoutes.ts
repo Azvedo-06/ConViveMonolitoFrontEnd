@@ -13,6 +13,9 @@ export interface UserResponseDto {
   phone: string;
   email: string;
   role: Role;
+  linkedin?: string;
+  instagram?: string;
+  youtube?: string;
   createdAt: string;
 }
 
@@ -25,6 +28,8 @@ export const backendRoutes = {
   adminArea: '/admin',
   usersAdminList: '/users',
   events: '/events',
+  myEvents: '/events/my-events',
+  cities: '/cities',
   eventDetails: (id: string | number) => `/events/${id}`,
   eventParticipants: (id: string | number) => `/events/${id}/participants`,
   joinEvent: (id: string | number) => `/events/${id}/join`,

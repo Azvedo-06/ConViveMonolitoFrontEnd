@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { type CityTheme, cityOptions } from '../../theme/cityTheme';
+import { type CityTheme, cityOptions, type CityConfig } from '../../theme/cityTheme';
 import { type CityFeedItem, type FeedCategory } from './cityFeedData';
 import { cityCategoryOptions, filterCityFeed } from './cityFeedUtils';
 import { backendFetch, backendRoutes, Role, type UserResponseDto } from '../../services/backendRoutes';
 
 type CityLandingScreenProps = {
   city: CityTheme;
+  cities?: CityConfig[];
   user: UserResponseDto | null;
   onLogout: () => void;
   onBack: () => void;
@@ -14,7 +15,7 @@ type CityLandingScreenProps = {
   onOpenProfile: () => void;
 };
 
-export function CityLandingScreen({ city, user, onLogout, onBack, onLogin, onSignup, onOpenProfile }: CityLandingScreenProps) {
+export function CityLandingScreen({ city, cities = [], user, onLogout, onBack, onLogin, onSignup, onOpenProfile }: CityLandingScreenProps) {
   const [activeCategory, setActiveCategory] = useState<FeedCategory>('eventos');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<CityFeedItem | null>(null);
@@ -22,7 +23,7 @@ export function CityLandingScreen({ city, user, onLogout, onBack, onLogin, onSig
   const [liveEvents, setLiveEvents] = useState<CityFeedItem[]>([]);
   const [isJoining, setIsJoining] = useState(false);
   const [joinMessage, setJoinMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const selectedCity = cityOptions.find((option) => option.id === city);
+  const selectedCity = cities.find((option) => option.id === city) || cityOptions.find((option) => option.id === city);
 
   const [showCreateEditModal, setShowCreateEditModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CityFeedItem | null>(null);
@@ -91,6 +92,9 @@ export function CityLandingScreen({ city, user, onLogout, onBack, onLogin, onSig
           contact: event.creator
             ? `${event.creator.email}${event.creator.phone ? ` / ${event.creator.phone}` : ''}`
             : '',
+          linkedin: event.creator?.linkedin || '',
+          instagram: event.creator?.instagram || '',
+          youtube: event.creator?.youtube || '',
           tags: [event.type.toLowerCase()],
           createdBy: typeof event.createdBy === 'object' ? event.createdBy?.id : event.createdBy,
           rawDate: event.date,
@@ -266,6 +270,9 @@ export function CityLandingScreen({ city, user, onLogout, onBack, onLogin, onSig
           contact: user
             ? `${user.email}${user.phone ? ` / ${user.phone}` : ''}`
             : '',
+          linkedin: user?.linkedin || '',
+          instagram: user?.instagram || '',
+          youtube: user?.youtube || '',
           tags: [newEvent.type.toLowerCase()],
           createdBy: newEvent.createdBy,
           rawDate: newEvent.date,
@@ -705,6 +712,60 @@ export function CityLandingScreen({ city, user, onLogout, onBack, onLogin, onSig
                   <dt className="text-text/70">Contato</dt>
                   <dd className="text-right font-medium text-text">{highlightedItem.contact}</dd>
                 </div>
+                {(highlightedItem.linkedin || highlightedItem.instagram || highlightedItem.youtube) && (
+                  <div className="flex justify-between items-center gap-4 border-b border-brand-primary/10 pb-3 flex-wrap">
+                    <dt className="text-text/70">Redes Sociais</dt>
+                    <dd className="flex gap-2">
+                      {highlightedItem.linkedin && (
+                        <a
+                          href={highlightedItem.linkedin.startsWith('http') ? highlightedItem.linkedin : `https://${highlightedItem.linkedin}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20 px-2.5 py-1 rounded-md transition"
+                          data-testid="organizer-linkedin"
+                          title="LinkedIn"
+                        >
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                          </svg>
+                          LinkedIn
+                        </a>
+                      )}
+                      {highlightedItem.instagram && (
+                        <a
+                          href={highlightedItem.instagram.startsWith('http') ? highlightedItem.instagram : `https://${highlightedItem.instagram}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20 px-2.5 py-1 rounded-md transition"
+                          data-testid="organizer-instagram"
+                          title="Instagram"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+                          </svg>
+                          Instagram
+                        </a>
+                      )}
+                      {highlightedItem.youtube && (
+                        <a
+                          href={highlightedItem.youtube.startsWith('http') ? highlightedItem.youtube : `https://${highlightedItem.youtube}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20 px-2.5 py-1 rounded-md transition"
+                          data-testid="organizer-youtube"
+                          title="YouTube"
+                        >
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.108C19.524 3.545 12 3.545 12 3.545s-7.524 0-9.388.51a3.002 3.002 0 0 0-2.11 2.108C0 8.027 0 12 0 12s0 3.973.502 5.837a3.002 3.002 0 0 0 2.11 2.108c1.864.51 9.388.51 9.388.51s7.525 0 9.388-.51a3.002 3.002 0 0 0 2.11-2.108c.502-1.864.502-5.837.502-5.837s0-3.973-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                          </svg>
+                          YouTube
+                        </a>
+                      )}
+                    </dd>
+                  </div>
+                )}
                 {highlightedItem.capacity ? (
                   <div className="flex justify-between gap-4 border-b border-brand-primary/10 pb-3">
                     <dt className="text-text/70">Capacidade</dt>

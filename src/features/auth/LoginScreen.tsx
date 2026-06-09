@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { type CityTheme, cityOptions } from '../../theme/cityTheme';
+import { type CityTheme, cityOptions, type CityConfig } from '../../theme/cityTheme';
 import { backendFetch, backendRoutes } from '../../services/backendRoutes';
 
 type LoginScreenProps = {
   city?: CityTheme;
+  cities?: CityConfig[];
   onBack: () => void;
   onSignup?: () => void;
   onLoginSuccess?: () => void;
   signupSuccess?: boolean;
 };
 
-export function LoginScreen({ city, onBack, onSignup, onLoginSuccess, signupSuccess }: LoginScreenProps) {
-  const selectedCity = city ? cityOptions.find((option) => option.id === city) : null;
+export function LoginScreen({ city, cities = [], onBack, onSignup, onLoginSuccess, signupSuccess }: LoginScreenProps) {
+  const selectedCity = city ? (cities.find((option) => option.id === city) || cityOptions.find((option) => option.id === city)) : null;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

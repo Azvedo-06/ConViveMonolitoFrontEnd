@@ -26,6 +26,9 @@ export type CityFeedItem = {
   rawDate?: string;
   price?: number;
   type?: 'COMMUNITY' | 'PRIVATE';
+  linkedin?: string;
+  instagram?: string;
+  youtube?: string;
 };
 
 export const cityFeedData: CityFeedItem[] = [];

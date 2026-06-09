@@ -4,7 +4,7 @@ import { SignupScreen } from './features/auth/SignupScreen';
 import { ProfileScreen } from './features/auth/ProfileScreen';
 import { CityLandingScreen } from './features/city/CityLandingScreen';
 import { CityOnboardingScreen } from './features/onboarding/CityOnboardingScreen';
-import { applyCityTheme, type CityTheme } from './theme/cityTheme';
+import { applyCityTheme, cityOptions, type CityTheme, type CityConfig } from './theme/cityTheme';
 import { backendFetch, backendRoutes, type UserResponseDto } from './services/backendRoutes';
 
 const onboardingBackgroundUrl = '/images/cidades-onboarding-fundo.jpg';
@@ -16,6 +16,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'city' | 'login' | 'signup' | 'profile'>('city');
   const [user, setUser] = useState<UserResponseDto | null>(null);
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const [cities, setCities] = useState<CityConfig[]>([]);
 
   async function fetchUserProfile() {
     const token = localStorage.getItem('token');
@@ -33,13 +34,27 @@ export default function App() {
     }
   }
 
+  async function fetchCities() {
+    try {
+      const data = await backendFetch<CityConfig[]>(backendRoutes.cities);
+      setCities(data);
+    } catch (err) {
+      console.error('Failed to fetch cities, using static config fallback:', err);
+      setCities(cityOptions);
+    }
+  }
+
   useEffect(() => {
     fetchUserProfile();
+    fetchCities();
   }, []);
 
-  function handleCitySelected(city: CityTheme) {
-    applyCityTheme(city);
-    setSelectedCity(city);
+  function handleCitySelected(cityId: CityTheme) {
+    const config = cities.find(c => c.id === cityId) || cityOptions.find(c => c.id === cityId);
+    if (config) {
+      applyCityTheme(config);
+    }
+    setSelectedCity(cityId);
     setCurrentScreen('city');
   }
 
@@ -90,6 +105,7 @@ export default function App() {
     return (
       <LoginScreen
         city={selectedCity ?? undefined}
+        cities={cities}
         onBack={handleBackFromLogin}
         onSignup={handleOpenSignup}
         onLoginSuccess={handleLoginSuccess}
@@ -102,6 +118,7 @@ export default function App() {
     return (
       <SignupScreen
         city={selectedCity ?? undefined}
+        cities={cities}
         onBack={handleBackFromSignup}
         onSignupAsUser={handleSignupAsUser}
         onSignupAsOrganizer={handleSignupAsOrganizer}
@@ -113,6 +130,7 @@ export default function App() {
     return (
       <ProfileScreen
         city={selectedCity ?? undefined}
+        cities={cities}
         user={user}
         onBack={() => setCurrentScreen('city')}
         onProfileUpdated={fetchUserProfile}
@@ -126,6 +144,9 @@ export default function App() {
         backgroundImageUrl={onboardingBackgroundUrl}
         backgroundImageFallbackUrl={onboardingBackgroundFallbackUrl}
         onCitySelected={handleCitySelected}
+        user={user}
+        cities={cities}
+        onCityAdded={fetchCities}
       />
     );
   }
@@ -133,6 +154,7 @@ export default function App() {
   return (
     <CityLandingScreen
       city={selectedCity}
+      cities={cities}
       user={user}
       onLogout={handleLogout}
       onBack={handleBackToCitySelect}
