@@ -52,6 +52,11 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
       return;
     }
 
+    if (phone.length < 10 || phone.length > 11) {
+      setError('O telefone deve conter 10 ou 11 dígitos numéricos (com DDD).');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setSuccess('');
@@ -66,8 +71,9 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
     };
 
     if (password) {
-      if (password.length < 6) {
-        setError('A nova senha deve ter pelo menos 6 caracteres.');
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(password)) {
+        setError('A nova senha deve conter no mínimo 8 caracteres, com pelo menos uma letra maiúscula, uma letra minúscula, um número e um caractere especial (ex: @$!%*?&).');
         setLoading(false);
         return;
       }
@@ -158,10 +164,11 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
           <span className="mb-1 block text-sm font-medium text-text/85">Telefone *</span>
           <input
             type="text"
-            placeholder="(11) 99999-9999"
+            placeholder="Apenas números (DDD + número)"
+            maxLength={11}
             className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
             required
           />
         </label>
@@ -179,14 +186,17 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-text/85">Alterar Senha (Mín. 6 caracteres)</span>
+          <span className="mb-1 block text-sm font-medium text-text/85">Alterar Senha</span>
           <input
             type="password"
-            placeholder="Digite uma nova senha para alterar"
+            placeholder="Digite uma nova senha forte para alterar"
             className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <span className="mt-1 block text-[10px] leading-normal text-text/50">
+            Mínimo 8 caracteres, uma letra maiúscula, uma letra minúscula, um número e um caractere especial (ex: @$!%*?&).
+          </span>
         </label>
       </div>
 

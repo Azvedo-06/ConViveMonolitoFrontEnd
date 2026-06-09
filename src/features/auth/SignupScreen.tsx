@@ -12,6 +12,28 @@ type SignupScreenProps = {
 
 export type SignupType = 'user' | 'organizer' | null;
 
+function isValidCpf(cpfStr: string): boolean {
+  const cleanCpf = cpfStr.replace(/\D/g, '');
+  if (cleanCpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cleanCpf)) return false; // Bloqueia CPFs com dígitos todos repetidos
+  let sum = 0;
+  let remainder;
+  for (let i = 1; i <= 9; i++) {
+    sum += parseInt(cleanCpf.substring(i - 1, i)) * (11 - i);
+  }
+  remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(cleanCpf.substring(9, 10))) return false;
+  sum = 0;
+  for (let i = 1; i <= 10; i++) {
+    sum += parseInt(cleanCpf.substring(i - 1, i)) * (12 - i);
+  }
+  remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(cleanCpf.substring(10, 11))) return false;
+  return true;
+}
+
 export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSignupAsOrganizer }: SignupScreenProps) {
   const [signupType, setSignupType] = useState<SignupType>(null);
   const [selectedCityId, setSelectedCityId] = useState<CityTheme | null>(city ?? null);
@@ -30,6 +52,22 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
     event.preventDefault();
     if (!name || !email || !cpf || !phone || !password) {
       setError('Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (!isValidCpf(cpf)) {
+      setError('Por favor, insira um CPF válido com 11 dígitos.');
+      return;
+    }
+
+    if (phone.length < 10 || phone.length > 11) {
+      setError('O telefone deve conter 10 ou 11 dígitos numéricos (com DDD).');
+      return;
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError('A senha deve conter no mínimo 8 caracteres, com pelo menos uma letra maiúscula, uma letra minúscula, um número e um caractere especial (ex: @$!%*?&).');
       return;
     }
 
@@ -82,10 +120,11 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
           <span className="mb-1 block text-sm font-medium text-text/85">CPF</span>
           <input
             type="text"
-            placeholder="Apenas números"
+            placeholder="Apenas números (11 dígitos)"
+            maxLength={11}
             className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
             value={cpf}
-            onChange={(e) => setCpf(e.target.value)}
+            onChange={(e) => setCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
             required
           />
         </label>
@@ -94,10 +133,11 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
           <span className="mb-1 block text-sm font-medium text-text/85">Telefone</span>
           <input
             type="tel"
-            placeholder="(DD) 99999-9999"
+            placeholder="Apenas números (DDD + número)"
+            maxLength={11}
             className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
             required
           />
         </label>
@@ -119,12 +159,15 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
         <span className="mb-1 block text-sm font-medium text-text/85">Senha</span>
         <input
           type="password"
-          placeholder="Crie uma senha (mínimo 6 caracteres)"
+          placeholder="Crie uma senha forte"
           className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
+        <span className="mt-1 block text-[11px] leading-normal text-text/60">
+          A senha deve conter no mínimo 8 caracteres, com pelo menos uma letra maiúscula, uma letra minúscula, um número e um caractere especial (ex: @$!%*?&).
+        </span>
       </label>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
