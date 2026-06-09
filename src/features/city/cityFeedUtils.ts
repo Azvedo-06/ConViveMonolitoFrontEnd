@@ -5,7 +5,6 @@ export const cityCategoryOptions: Array<{ id: FeedCategory; label: string }> = [
   { id: 'eventos', label: 'EVENTOS' },
   { id: 'cursos', label: 'CURSOS' },
   { id: 'atividades', label: 'ATIVIDADES' },
-  { id: 'informativos', label: 'INFORMATIVOS' },
 ];
 
 export function filterCityFeed(
@@ -23,7 +22,7 @@ export function filterCityFeed(
         return true;
       }
 
-      const haystack = `${item.title} ${item.summary} ${item.location} ${item.organizer}`.toLowerCase();
+      const haystack = `${item.title} ${item.summary} ${item.location} ${item.organizer} ${item.category} ${item.access ?? ''} ${item.ticketPrice ?? ''} ${item.ctaLabel ?? ''} ${item.tags.join(' ')}`.toLowerCase();
       return haystack.includes(normalizedSearch);
     });
 }
