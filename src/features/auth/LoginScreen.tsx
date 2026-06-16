@@ -1,18 +1,21 @@
 import { useState } from 'react';
-import { type CityTheme, cityOptions, type CityConfig } from '../../theme/cityTheme';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { cityOptions } from '../../theme/cityTheme';
 import { backendFetch, backendRoutes } from '../../services/backendRoutes';
+import { useApp } from '../../context/AppContext';
 
-type LoginScreenProps = {
-  city?: CityTheme;
-  cities?: CityConfig[];
-  onBack: () => void;
-  onSignup?: () => void;
-  onLoginSuccess?: () => void;
-  signupSuccess?: boolean;
-};
+export function LoginScreen() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { cities, fetchUserProfile } = useApp();
+  const signupSuccess = location.state?.signupSuccess;
 
-export function LoginScreen({ city, cities = [], onBack, onSignup, onLoginSuccess, signupSuccess }: LoginScreenProps) {
-  const selectedCity = city ? (cities.find((option) => option.id === city) || cityOptions.find((option) => option.id === city)) : null;
+  const savedCityId = localStorage.getItem('last_city');
+  const selectedCity = savedCityId
+    ? cities.find((option) => option.id === savedCityId) ||
+      cityOptions.find((option) => option.id === savedCityId)
+    : null;
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +38,8 @@ export function LoginScreen({ city, cities = [], onBack, onSignup, onLoginSucces
       });
 
       localStorage.setItem('token', response.access_token);
-      onLoginSuccess?.();
+      await fetchUserProfile();
+      navigate(savedCityId ? `/${savedCityId}` : '/', { replace: true });
     } catch (err: any) {
       setError(err.message || 'Erro ao realizar login.');
     } finally {
@@ -43,14 +47,12 @@ export function LoginScreen({ city, cities = [], onBack, onSignup, onLoginSucces
     }
   };
 
+  const handleBack = () => {
+    navigate(savedCityId ? `/${savedCityId}` : '/');
+  };
+
   const renderFormContent = () => (
     <>
-      {signupSuccess && (
-        <div className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-xl flex items-center gap-2" data-testid="signup-success-alert">
-          <span className="font-bold">✓</span>
-          <span>Cadastro realizado com sucesso! Faça login para continuar.</span>
-        </div>
-      )}
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-text/85">E-mail</span>
         <input
@@ -106,7 +108,7 @@ export function LoginScreen({ city, cities = [], onBack, onSignup, onLoginSucces
         type="button"
         className="w-full rounded-md border border-brand-primary/40 bg-white px-4 py-3 text-sm font-semibold text-brand-primary transition hover:bg-brand-primary/10"
         data-testid="login-create-account-button"
-        onClick={onSignup}
+        onClick={() => navigate('/signup')}
       >
         Criar conta
       </button>
@@ -120,7 +122,7 @@ export function LoginScreen({ city, cities = [], onBack, onSignup, onLoginSucces
           <div className="w-full">
             <button
               type="button"
-              onClick={onBack}
+              onClick={handleBack}
               className="mb-4 rounded border border-brand-primary/35 bg-white/90 px-4 py-2 text-sm font-medium text-brand-primary transition hover:bg-white"
               data-testid="login-back-button"
             >
@@ -158,7 +160,7 @@ export function LoginScreen({ city, cities = [], onBack, onSignup, onLoginSucces
         <div className="w-full">
           <button
             type="button"
-            onClick={onBack}
+            onClick={handleBack}
             className="mb-4 rounded border border-brand-primary/35 bg-white/90 px-4 py-2 text-sm font-medium text-brand-primary transition hover:bg-white"
             data-testid="login-back-button"
           >

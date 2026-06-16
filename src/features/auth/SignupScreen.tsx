@@ -1,14 +1,8 @@
 import { useState } from 'react';
-import { type CityTheme, cityOptions, type CityConfig } from '../../theme/cityTheme';
+import { useNavigate } from 'react-router-dom';
+import { cityOptions, type CityTheme, type CityConfig } from '../../theme/cityTheme';
 import { backendFetch, backendRoutes } from '../../services/backendRoutes';
-
-type SignupScreenProps = {
-  city?: CityTheme;
-  cities?: CityConfig[];
-  onBack: () => void;
-  onSignupAsUser?: () => void;
-  onSignupAsOrganizer?: () => void;
-};
+import { useApp } from '../../context/AppContext';
 
 export type SignupType = 'user' | 'organizer' | null;
 
@@ -34,15 +28,100 @@ function isValidCpf(cpfStr: string): boolean {
   return true;
 }
 
-export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSignupAsOrganizer }: SignupScreenProps) {
+function isValidCnpj(cnpjStr: string): boolean {
+  const cleanCnpj = cnpjStr.replace(/\D/g, '');
+  if (cleanCnpj.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(cleanCnpj)) return false;
+
+  let size = cleanCnpj.length - 2;
+  let numbers = cleanCnpj.substring(0, size);
+  const digits = cleanCnpj.substring(size);
+  let sum = 0;
+  let pos = size - 7;
+  for (let i = size; i >= 1; i--) {
+    sum += parseInt(numbers.charAt(size - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (result !== parseInt(digits.charAt(0))) return false;
+
+  size = size + 1;
+  numbers = cleanCnpj.substring(0, size);
+  sum = 0;
+  pos = size - 7;
+  for (let i = size; i >= 1; i--) {
+    sum += parseInt(numbers.charAt(size - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (result !== parseInt(digits.charAt(1))) return false;
+
+  return true;
+}
+
+function formatCpf(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 11);
+  let masked = '';
+  if (digits.length > 0) masked += digits.slice(0, 3);
+  if (digits.length > 3) masked += '.' + digits.slice(3, 6);
+  if (digits.length > 6) masked += '.' + digits.slice(6, 9);
+  if (digits.length > 9) masked += '-' + digits.slice(9, 11);
+  return masked;
+}
+
+function formatCnpj(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 14);
+  let masked = '';
+  if (digits.length > 0) masked += digits.slice(0, 2);
+  if (digits.length > 2) masked += '.' + digits.slice(2, 5);
+  if (digits.length > 5) masked += '.' + digits.slice(5, 8);
+  if (digits.length > 8) masked += '/' + digits.slice(8, 12);
+  if (digits.length > 12) masked += '-' + digits.slice(12, 14);
+  return masked;
+}
+
+function formatPhone(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 11);
+  let masked = '';
+  if (digits.length > 0) {
+    masked += '(' + digits.slice(0, 2);
+  }
+  if (digits.length > 2) {
+    masked += ') ' + digits.slice(2, 7);
+  }
+  if (digits.length > 7) {
+    masked += '-' + digits.slice(7, 11);
+  }
+  return masked;
+}
+
+function formatCep(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 8);
+  let masked = '';
+  if (digits.length > 0) masked += digits.slice(0, 5);
+  if (digits.length > 5) masked += '-' + digits.slice(5, 8);
+  return masked;
+}
+
+export function SignupScreen() {
+  const navigate = useNavigate();
+  const { cities } = useApp();
+
+  const savedCityId = localStorage.getItem('last_city');
+
   const [signupType, setSignupType] = useState<SignupType>(null);
-  const [selectedCityId, setSelectedCityId] = useState<CityTheme | null>(city ?? null);
+  const [selectedCityId, setSelectedCityId] = useState<CityTheme | null>(
+    savedCityId ?? null
+  );
+
   const currentCities = cities.length > 0 ? cities : cityOptions;
   const selectedCity = currentCities.find((option) => option.id === selectedCityId);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [cpf, setCpf] = useState('');
+  const [cnpj, setCnpj] = useState('');
+  const [cep, setCep] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -50,18 +129,34 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
 
   const handleSignup = async (event: React.FormEvent, isOrganizer: boolean) => {
     event.preventDefault();
-    if (!name || !email || !cpf || !phone || !password) {
+
+    const cleanCpf = cpf.replace(/\D/g, '');
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanCnpj = cnpj.replace(/\D/g, '');
+    const cleanCep = cep.replace(/\D/g, '');
+
+    if (!name || !email || !cleanCpf || !cleanPhone || !password) {
       setError('Por favor, preencha todos os campos.');
       return;
     }
 
-    if (!isValidCpf(cpf)) {
+    if (!isValidCpf(cleanCpf)) {
       setError('Por favor, insira um CPF válido com 11 dígitos.');
       return;
     }
 
-    if (phone.length < 10 || phone.length > 11) {
-      setError('O telefone deve conter 10 ou 11 dígitos numéricos (com DDD).');
+    if (isOrganizer && cleanCnpj && !isValidCnpj(cleanCnpj)) {
+      setError('Por favor, insira um CNPJ válido com 14 dígitos.');
+      return;
+    }
+
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      setError('O telefone deve conter 10 ou 11 dígitos numéricos.');
+      return;
+    }
+
+    if (cleanCep && cleanCep.length !== 8) {
+      setError('O CEP deve conter 8 dígitos numéricos.');
       return;
     }
 
@@ -80,23 +175,30 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
         body: JSON.stringify({
           name,
           email,
-          cpf,
-          phone,
+          cpf: cleanCpf,
+          cnpj: isOrganizer ? cleanCnpj : undefined,
+          cep: cleanCep || undefined,
+          phone: cleanPhone,
           password,
           role: isOrganizer ? 'ORGANIZER' : 'USER',
         }),
       });
 
-      if (isOrganizer) {
-        onSignupAsOrganizer?.();
-      } else {
-        onSignupAsUser?.();
+      // Save city configuration in case it is configured
+      if (selectedCityId) {
+        localStorage.setItem('last_city', selectedCityId);
       }
+
+      navigate('/login', { state: { signupSuccess: true } });
     } catch (err: any) {
       setError(err.message || 'Erro ao realizar cadastro.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBack = () => {
+    navigate(selectedCityId ? `/${selectedCityId}` : '/');
   };
 
   const renderFormFields = () => (
@@ -120,11 +222,11 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
           <span className="mb-1 block text-sm font-medium text-text/85">CPF</span>
           <input
             type="text"
-            placeholder="Apenas números (11 dígitos)"
-            maxLength={11}
+            placeholder="123.456.789-10"
+            maxLength={14}
             className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
             value={cpf}
-            onChange={(e) => setCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            onChange={(e) => setCpf(formatCpf(e.target.value))}
             required
           />
         </label>
@@ -133,14 +235,56 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
           <span className="mb-1 block text-sm font-medium text-text/85">Telefone</span>
           <input
             type="tel"
-            placeholder="Apenas números (DDD + número)"
-            maxLength={11}
+            placeholder="(11) 91234-5678"
+            maxLength={15}
             className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
             value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
             required
           />
         </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {signupType === 'organizer' ? (
+          <>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-text/85">CNPJ (opcional)</span>
+              <input
+                type="text"
+                placeholder="12.345.678/0001-90"
+                maxLength={18}
+                className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+                value={cnpj}
+                onChange={(e) => setCnpj(formatCnpj(e.target.value))}
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-text/85">CEP</span>
+              <input
+                type="text"
+                placeholder="12345-678"
+                maxLength={9}
+                className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+                value={cep}
+                onChange={(e) => setCep(formatCep(e.target.value))}
+              />
+            </label>
+          </>
+        ) : (
+          <label className="block col-span-2">
+            <span className="mb-1 block text-sm font-medium text-text/85">CEP</span>
+            <input
+              type="text"
+              placeholder="12345-678"
+              maxLength={9}
+              className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+              value={cep}
+              onChange={(e) => setCep(formatCep(e.target.value))}
+            />
+          </label>
+        )}
       </div>
 
       <label className="block">
@@ -190,7 +334,7 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
           <div className="w-full">
             <button
               type="button"
-              onClick={onBack}
+              onClick={handleBack}
               className="mb-4 rounded border border-brand-primary/35 bg-white/90 px-4 py-2 text-sm font-medium text-brand-primary transition hover:bg-white"
               data-testid="signup-back-button"
             >
@@ -259,7 +403,7 @@ export function SignupScreen({ city, cities = [], onBack, onSignupAsUser, onSign
           <div className="w-full">
             <button
               type="button"
-              onClick={onBack}
+              onClick={() => setSelectedCityId(null)}
               className="mb-4 rounded border border-brand-primary/35 bg-white/90 px-4 py-2 text-sm font-medium text-brand-primary transition hover:bg-white"
               data-testid="signup-back-button"
             >

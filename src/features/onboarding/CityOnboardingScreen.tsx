@@ -1,15 +1,12 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { applyCityTheme, cityOptions, type CityTheme, type CityConfig } from '../../theme/cityTheme';
-import { backendFetch, backendRoutes, type UserResponseDto } from '../../services/backendRoutes';
+import { backendFetch, backendRoutes } from '../../services/backendRoutes';
+import { useApp } from '../../context/AppContext';
 
-type CityOnboardingScreenProps = {
-  backgroundImageUrl: string;
-  backgroundImageFallbackUrl: string;
-  onCitySelected?: (city: CityTheme) => void;
-  user?: UserResponseDto | null;
-  cities?: CityConfig[];
-  onCityAdded?: () => void;
-};
+const onboardingBackgroundUrl = '/images/cidades-onboarding-fundo.jpg';
+const onboardingBackgroundFallbackUrl =
+  'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1680&q=80';
 
 function hexToRgbChannels(hex: string): string {
   const cleanHex = hex.replace(/^#/, '');
@@ -32,14 +29,10 @@ function rgbChannelsToHex(channels: string): string {
   return '#2E7D32';
 }
 
-export function CityOnboardingScreen({
-  backgroundImageUrl,
-  backgroundImageFallbackUrl,
-  onCitySelected,
-  user,
-  cities = [],
-  onCityAdded,
-}: CityOnboardingScreenProps) {
+export function CityOnboardingScreen() {
+  const navigate = useNavigate();
+  const { user, cities, fetchCities } = useApp();
+
   const cards = useMemo(() => {
     return cities.length > 0 ? cities : cityOptions;
   }, [cities]);
@@ -68,7 +61,8 @@ export function CityOnboardingScreen({
     if (config) {
       applyCityTheme(config);
     }
-    onCitySelected?.(cityId);
+    localStorage.setItem('last_city', cityId);
+    navigate(`/${cityId}`);
   }
 
   const handleStartEditCity = (city: CityConfig) => {
@@ -102,7 +96,7 @@ export function CityOnboardingScreen({
       await backendFetch(`${backendRoutes.cities}/${cityId}`, {
         method: 'DELETE',
       });
-      onCityAdded?.();
+      await fetchCities();
     } catch (err: any) {
       alert(err.message || 'Erro ao excluir a cidade.');
     }
@@ -148,9 +142,7 @@ export function CityOnboardingScreen({
       }
 
       handleCloseModal();
-
-      // Refresh parent cities list
-      onCityAdded?.();
+      await fetchCities();
     } catch (err: any) {
       setError(err.message || 'Erro ao salvar a cidade.');
     } finally {
@@ -161,11 +153,11 @@ export function CityOnboardingScreen({
   return (
     <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-primary/10 via-surface to-brand-secondary/10 font-body" data-testid="city-onboarding-screen">
       <img
-        src={backgroundImageUrl}
+        src={onboardingBackgroundUrl}
         alt="Pessoas participando de atividades comunitarias"
         className="absolute inset-0 h-full w-full object-cover"
         onError={(event) => {
-          event.currentTarget.src = backgroundImageFallbackUrl;
+          event.currentTarget.src = onboardingBackgroundFallbackUrl;
         }}
       />
 
@@ -174,7 +166,6 @@ export function CityOnboardingScreen({
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl items-start px-4 py-8 sm:px-6 md:px-8 md:py-10 lg:items-center">
         <div className="w-full">
-
           <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
             <div className="space-y-7">
               <div className="max-w-2xl">
@@ -238,7 +229,7 @@ export function CityOnboardingScreen({
                             className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary transition hover:bg-brand-primary hover:text-white shadow-sm"
                             title="Editar Cidade"
                           >
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                             </svg>
                           </button>
@@ -251,7 +242,7 @@ export function CityOnboardingScreen({
                             className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-600 hover:text-white shadow-sm"
                             title="Excluir Cidade"
                           >
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
@@ -274,7 +265,6 @@ export function CityOnboardingScreen({
                     + Adicionar Nova Cidade
                   </button>
                 )}
-
               </div>
             </div>
 
@@ -329,6 +319,7 @@ export function CityOnboardingScreen({
             type="button"
             className="absolute inset-0 bg-transparent w-full h-full border-none outline-none cursor-default"
             onClick={handleCloseModal}
+            aria-label="Fechar modal"
           />
 
           <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-brand-primary/15 bg-white shadow-cityCard animate-slideUp">
@@ -340,8 +331,9 @@ export function CityOnboardingScreen({
                 type="button"
                 onClick={handleCloseModal}
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-primary transition hover:bg-brand-primary/10"
+                aria-label="Fechar"
               >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
                 </svg>
               </button>

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 export enum Role {
   USER = 'USER',
@@ -16,6 +16,8 @@ export interface UserResponseDto {
   linkedin?: string;
   instagram?: string;
   youtube?: string;
+  cnpj?: string;
+  cep?: string;
   createdAt: string;
 }
 

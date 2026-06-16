@@ -1,20 +1,70 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { type CityTheme, cityOptions, type CityConfig } from '../../theme/cityTheme';
-import { backendFetch, backendRoutes, Role, type UserResponseDto } from '../../services/backendRoutes';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { cityOptions } from '../../theme/cityTheme';
+import { io } from 'socket.io-client';
+import { backendFetch, backendRoutes, Role, type UserResponseDto, API_BASE_URL } from '../../services/backendRoutes';
+import { useApp } from '../../context/AppContext';
 
-type ProfileScreenProps = {
-  city?: CityTheme;
-  cities?: CityConfig[];
-  user: UserResponseDto | null;
-  onBack: () => void;
-  onProfileUpdated?: () => void;
-};
+function formatCpf(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 11);
+  let masked = '';
+  if (digits.length > 0) masked += digits.slice(0, 3);
+  if (digits.length > 3) masked += '.' + digits.slice(3, 6);
+  if (digits.length > 6) masked += '.' + digits.slice(6, 9);
+  if (digits.length > 9) masked += '-' + digits.slice(9, 11);
+  return masked;
+}
 
-export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdated }: ProfileScreenProps) {
-  const selectedCity = city ? (cities.find((option) => option.id === city) || cityOptions.find((option) => option.id === city)) : null;
+function formatCnpj(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 14);
+  let masked = '';
+  if (digits.length > 0) masked += digits.slice(0, 2);
+  if (digits.length > 2) masked += '.' + digits.slice(2, 5);
+  if (digits.length > 5) masked += '.' + digits.slice(5, 8);
+  if (digits.length > 8) masked += '/' + digits.slice(8, 12);
+  if (digits.length > 12) masked += '-' + digits.slice(12, 14);
+  return masked;
+}
+
+function formatPhone(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 11);
+  let masked = '';
+  if (digits.length > 0) {
+    masked += '(' + digits.slice(0, 2);
+  }
+  if (digits.length > 2) {
+    masked += ') ' + digits.slice(2, 7);
+  }
+  if (digits.length > 7) {
+    masked += '-' + digits.slice(7, 11);
+  }
+  return masked;
+}
+
+function formatCep(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 8);
+  let masked = '';
+  if (digits.length > 0) masked += digits.slice(0, 5);
+  if (digits.length > 5) masked += '-' + digits.slice(5, 8);
+  return masked;
+}
+
+
+export function ProfileScreen() {
+  const navigate = useNavigate();
+  const { user, cities, fetchUserProfile } = useApp();
+
+  const savedCityId = localStorage.getItem('last_city');
+  const selectedCity = savedCityId
+    ? cities.find((option) => option.id === savedCityId) ||
+      cityOptions.find((option) => option.id === savedCityId)
+    : null;
+
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [phone, setPhone] = useState(user?.phone || '');
+  const [phone, setPhone] = useState(user?.phone ? formatPhone(user.phone) : '');
+  const [cnpj, setCnpj] = useState(user?.cnpj ? formatCnpj(user.cnpj) : '');
+  const [cep, setCep] = useState(user?.cep ? formatCep(user.cep) : '');
   const [linkedin, setLinkedin] = useState(user?.linkedin || '');
   const [instagram, setInstagram] = useState(user?.instagram || '');
   const [youtube, setYoutube] = useState(user?.youtube || '');
@@ -22,6 +72,10 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const handleBack = () => {
+    navigate(savedCityId ? `/${savedCityId}` : '/');
+  };
 
   const [myEvents, setMyEvents] = useState<{ created: any[]; joined: any[] }>({ created: [], joined: [] });
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -53,7 +107,7 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
     }
   }, [user]);
 
-  // Load chat messages when modal opens and chat tab is selected
+  // WebSocket setup for chat
   useEffect(() => {
     if (!selectedEvent || !user || activeModalTab !== 'chat') {
       return;
@@ -69,12 +123,32 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
         console.error('Erro ao carregar mensagens do chat', err);
       }
     }
+    fetchMsgs();
 
-    fetchMsgs(); // Fetch immediately!
+    const socket = io(API_BASE_URL);
 
-    const interval = setInterval(fetchMsgs, 4000); // Poll every 4 seconds
+    socket.on('connect', () => {
+      console.log('Conectado ao WebSocket do evento (Perfil)', eventId);
+      socket.emit('joinEvent', { eventId });
+    });
 
-    return () => clearInterval(interval);
+    socket.on('newMessage', (newMessage: any) => {
+      setChatMessages((prev) => {
+        if (prev.some((m) => m.id === newMessage.id)) {
+          return prev;
+        }
+        return [...prev, newMessage];
+      });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Desconectado do WebSocket do evento (Perfil)', eventId);
+    });
+
+    return () => {
+      socket.emit('leaveEvent', { eventId });
+      socket.disconnect();
+    };
   }, [selectedEvent, user, activeModalTab]);
 
   // Scroll to bottom
@@ -105,7 +179,12 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
         method: 'POST',
         body: JSON.stringify({ message: text }),
       });
-      setChatMessages((prev) => [...prev, newMsg]);
+      setChatMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) {
+          return prev;
+        }
+        return [...prev, newMsg];
+      });
     } catch (err: any) {
       setChatError(err.message || 'Erro ao enviar a mensagem');
     }
@@ -113,13 +192,21 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
 
   const handleUpdate = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!name || !email || !phone) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanCep = cep.replace(/\D/g, '');
+
+    if (!name || !email || !cleanPhone) {
       setError('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
 
-    if (phone.length < 10 || phone.length > 11) {
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
       setError('O telefone deve conter 10 ou 11 dígitos numéricos (com DDD).');
+      return;
+    }
+
+    if (cleanCep && cleanCep.length !== 8) {
+      setError('O CEP deve conter 8 dígitos numéricos.');
       return;
     }
 
@@ -130,7 +217,8 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
     const payload: any = {
       name,
       email,
-      phone,
+      phone: cleanPhone,
+      cep: cleanCep || null,
       linkedin: linkedin || null,
       instagram: instagram || null,
       youtube: youtube || null,
@@ -154,7 +242,7 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
 
       setSuccess('Perfil atualizado com sucesso!');
       setPassword(''); // Limpar senha após alteração bem-sucedida
-      onProfileUpdated?.();
+      fetchUserProfile();
     } catch (err: any) {
       setError(err.message || 'Erro ao atualizar o perfil.');
     } finally {
@@ -208,7 +296,7 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
             type="text"
             disabled
             className="w-full rounded-md border border-brand-primary/10 bg-surface px-3 py-2.5 text-sm text-text/60 outline-none cursor-not-allowed"
-            value={user?.cpf || ''}
+            value={user?.cpf ? formatCpf(user.cpf) : ''}
           />
         </label>
       </div>
@@ -230,14 +318,53 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
           <span className="mb-1 block text-sm font-medium text-text/85">Telefone *</span>
           <input
             type="text"
-            placeholder="Apenas números (DDD + número)"
-            maxLength={11}
+            placeholder="(11) 91234-5678"
+            maxLength={15}
             className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
             value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
             required
           />
         </label>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {user?.role === 'ORGANIZER' ? (
+          <>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-text/85">CNPJ (Não alterável)</span>
+              <input
+                type="text"
+                disabled
+                className="w-full rounded-md border border-brand-primary/10 bg-surface px-3 py-2.5 text-sm text-text/60 outline-none cursor-not-allowed"
+                value={cnpj}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-text/85">CEP</span>
+              <input
+                type="text"
+                placeholder="12345-678"
+                maxLength={9}
+                className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+                value={cep}
+                onChange={(e) => setCep(formatCep(e.target.value))}
+              />
+            </label>
+          </>
+        ) : (
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-sm font-medium text-text/85">CEP</span>
+            <input
+              type="text"
+              placeholder="12345-678"
+              maxLength={9}
+              className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+              value={cep}
+              onChange={(e) => setCep(formatCep(e.target.value))}
+            />
+          </label>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -322,7 +449,7 @@ export function ProfileScreen({ city, cities = [], user, onBack, onProfileUpdate
         <div className="w-full">
           <button
             type="button"
-            onClick={onBack}
+            onClick={handleBack}
             className="mb-4 rounded border border-brand-primary/35 bg-white/90 px-4 py-2 text-sm font-medium text-brand-primary transition hover:bg-white"
             data-testid="profile-back-button"
           >

@@ -13,3 +13,8 @@ coverage/
 
 # Tool caches
 .eslintcache
+
+# Playwright reports and results
+playwright-report/
+test-results/
+
