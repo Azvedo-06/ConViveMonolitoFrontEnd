@@ -1,33 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { applyCityTheme, cityOptions, type CityTheme, type CityConfig } from '../../theme/cityTheme';
-import { backendFetch, backendRoutes } from '../../services/backendRoutes';
+import { backendFetch, backendRoutes, getImageUrl } from '../../services/backendRoutes';
 import { useApp } from '../../context/AppContext';
+import { AddEditCityModal } from './components/AddEditCityModal';
 
 const onboardingBackgroundUrl = '/images/cidades-onboarding-fundo.jpg';
 const onboardingBackgroundFallbackUrl =
   'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1680&q=80';
-
-function hexToRgbChannels(hex: string): string {
-  const cleanHex = hex.replace(/^#/, '');
-  const num = parseInt(cleanHex, 16);
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
-  return `${r} ${g} ${b}`;
-}
-
-function rgbChannelsToHex(channels: string): string {
-  const parts = channels.split(' ').map(Number);
-  if (parts.length === 3 && parts.every(p => !isNaN(p))) {
-    const [r, g, b] = parts;
-    return '#' + [r, g, b].map(x => {
-      const hex = x.toString(16);
-      return hex.length === 1 ? '0' + hex : hex;
-    }).join('');
-  }
-  return '#2E7D32';
-}
 
 export function CityOnboardingScreen() {
   const navigate = useNavigate();
@@ -42,15 +22,9 @@ export function CityOnboardingScreen() {
 
   // Admin Modal state
   const [showAddCityModal, setShowAddCityModal] = useState(false);
-  const [cityName, setCityName] = useState('');
-  const [citySpotlight, setCitySpotlight] = useState('');
-  const [cityImageUrl, setCityImageUrl] = useState('');
-  const [colorPrimary, setColorPrimary] = useState('#2E7D32');
-  const [colorSecondary, setColorSecondary] = useState('#66BB6A');
-  const [cityTags, setCityTags] = useState('');
+  const [editingCity, setEditingCity] = useState<CityConfig | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [editingCityId, setEditingCityId] = useState<string | null>(null);
 
   const previewCity = cards.find((city) => city.id === hoveredCityId) ?? cards[0] ?? null;
 
@@ -67,25 +41,14 @@ export function CityOnboardingScreen() {
 
   const handleStartEditCity = (city: CityConfig) => {
     setError('');
-    setCityName(city.label);
-    setCitySpotlight(city.spotlight || '');
-    setCityImageUrl(city.imageUrl || '');
-    setCityTags(city.tags ? city.tags.join(', ') : '');
-    setColorPrimary(rgbChannelsToHex(city.colorPrimary || '46 125 50'));
-    setColorSecondary(rgbChannelsToHex(city.colorSecondary || '102 187 106'));
-    setEditingCityId(city.id);
+    setEditingCity(city);
     setShowAddCityModal(true);
   };
 
   const handleCloseModal = () => {
     setShowAddCityModal(false);
-    setEditingCityId(null);
-    setCityName('');
-    setCitySpotlight('');
-    setCityImageUrl('');
-    setCityTags('');
-    setColorPrimary('#2E7D32');
-    setColorSecondary('#66BB6A');
+    setEditingCity(null);
+    setError('');
   };
 
   const handleDeleteCity = async (cityId: string) => {
@@ -102,42 +65,32 @@ export function CityOnboardingScreen() {
     }
   };
 
-  const handleAddCity = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cityName || !citySpotlight) {
-      setError('Por favor, preencha todos os campos obrigatórios.');
-      return;
-    }
-
+  const handleSaveCity = async (payload: any, imageFile: File | null) => {
     setLoading(true);
     setError('');
 
-    const primaryRGB = hexToRgbChannels(colorPrimary);
-    const secondaryRGB = hexToRgbChannels(colorSecondary);
-    const tagsArray = cityTags
-      ? cityTags.split(',').map((t) => t.trim()).filter(Boolean)
-      : ['cultura', 'eventos'];
-
-    const payload = {
-      label: cityName,
-      spotlight: citySpotlight,
-      imageUrl: cityImageUrl || undefined,
-      imageFallbackUrl: cityImageUrl || undefined,
-      colorPrimary: primaryRGB,
-      colorSecondary: secondaryRGB,
-      tags: tagsArray,
-    };
-
     try {
-      if (editingCityId) {
-        await backendFetch(`${backendRoutes.cities}/${editingCityId}`, {
+      let savedCity: any;
+      if (editingCity) {
+        savedCity = await backendFetch<any>(`${backendRoutes.cities}/${editingCity.id}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
       } else {
-        await backendFetch(backendRoutes.cities, {
+        savedCity = await backendFetch<any>(backendRoutes.cities, {
           method: 'POST',
           body: JSON.stringify(payload),
+        });
+      }
+
+      // Se houver um arquivo de imagem física, faz o upload para o backend associando ao id da cidade
+      if (imageFile && savedCity && savedCity.id) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+
+        await backendFetch<any>(`${backendRoutes.cities}/${savedCity.id}/upload`, {
+          method: 'POST',
+          body: formData,
         });
       }
 
@@ -273,11 +226,11 @@ export function CityOnboardingScreen() {
                 <div className="overflow-hidden rounded-2xl border border-brand-primary/20 bg-white shadow-cityCard">
                   <div className="relative h-[320px]">
                     <img
-                      src={previewCity.imageUrl}
+                      src={getImageUrl(previewCity.imageUrl)}
                       alt={`Prévia visual da cidade de ${previewCity.label}`}
                       className="h-full w-full object-cover"
                       onError={(event) => {
-                        event.currentTarget.src = previewCity.imageFallbackUrl;
+                        event.currentTarget.src = getImageUrl(previewCity.imageFallbackUrl);
                       }}
                     />
                     <div
@@ -314,157 +267,14 @@ export function CityOnboardingScreen() {
       </div>
 
       {showAddCityModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <button
-            type="button"
-            className="absolute inset-0 bg-transparent w-full h-full border-none outline-none cursor-default"
-            onClick={handleCloseModal}
-            aria-label="Fechar modal"
-          />
-
-          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-brand-primary/15 bg-white shadow-cityCard animate-slideUp">
-            <header className="flex justify-between items-center border-b border-brand-primary/10 px-5 py-4 bg-brand-primary/5">
-              <h2 className="font-display text-lg font-bold text-brand-primary">
-                {editingCityId ? 'Editar Cidade' : 'Cadastrar Nova Cidade'}
-              </h2>
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-primary transition hover:bg-brand-primary/10"
-                aria-label="Fechar"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </header>
-
-            <form onSubmit={handleAddCity} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded-xl">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-text/85 uppercase tracking-wider mb-1">Nome da Cidade *</label>
-                <input
-                  type="text"
-                  required
-                  value={cityName}
-                  onChange={(e) => setCityName(e.target.value)}
-                  className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
-                  placeholder="Ex: Londrina"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-text/85 uppercase tracking-wider mb-1">Destaque *</label>
-                <input
-                  type="text"
-                  required
-                  value={citySpotlight}
-                  onChange={(e) => setCitySpotlight(e.target.value)}
-                  className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
-                  placeholder="Ex: Foco em eventos universitários e culturais."
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-text/85 uppercase tracking-wider mb-1">URL da Imagem (Opcional)</label>
-                <input
-                  type="url"
-                  value={cityImageUrl}
-                  onChange={(e) => setCityImageUrl(e.target.value)}
-                  className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
-                  placeholder="https://images.unsplash.com/..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-text/85 uppercase tracking-wider mb-1">Tags (Separadas por vírgula)</label>
-                <input
-                  type="text"
-                  value={cityTags}
-                  onChange={(e) => setCityTags(e.target.value)}
-                  className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
-                  placeholder="Ex: inovação, cultura, lazer"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-text/85 uppercase tracking-wider mb-1">Cor Principal *</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={colorPrimary}
-                      onChange={(e) => setColorPrimary(e.target.value)}
-                      className="h-10 w-12 cursor-pointer rounded-xl border border-brand-primary/25 bg-transparent p-0 overflow-hidden"
-                    />
-                    <input
-                      type="text"
-                      value={colorPrimary.toUpperCase()}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.startsWith('#') && val.length <= 7) {
-                          setColorPrimary(val);
-                        } else if (!val.startsWith('#') && val.length <= 6) {
-                          setColorPrimary('#' + val);
-                        }
-                      }}
-                      className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55"
-                      placeholder="#2E7D32"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-text/85 uppercase tracking-wider mb-1">Cor Secundária *</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={colorSecondary}
-                      onChange={(e) => setColorSecondary(e.target.value)}
-                      className="h-10 w-12 cursor-pointer rounded-xl border border-brand-primary/25 bg-transparent p-0 overflow-hidden"
-                    />
-                    <input
-                      type="text"
-                      value={colorSecondary.toUpperCase()}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.startsWith('#') && val.length <= 7) {
-                          setColorSecondary(val);
-                        } else if (!val.startsWith('#') && val.length <= 6) {
-                          setColorSecondary('#' + val);
-                        }
-                      }}
-                      className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55"
-                      placeholder="#66BB6A"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-brand-primary/10">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="rounded-xl border border-brand-primary/30 px-4 py-2 text-xs font-semibold text-brand-primary transition hover:bg-brand-primary/5"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="rounded-xl bg-brand-primary px-5 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-75"
-                >
-                  {loading ? 'Salvando...' : (editingCityId ? 'Salvar Alterações' : 'Salvar Cidade')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <AddEditCityModal
+          editingCity={editingCity}
+          onClose={handleCloseModal}
+          onSave={handleSaveCity}
+          loading={loading}
+          error={error}
+          setError={setError}
+        />
       )}
     </section>
   );

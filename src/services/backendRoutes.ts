@@ -80,3 +80,12 @@ export async function backendFetch<T>(
   return (await response.json()) as T;
 }
 
+export function getImageUrl(url?: string): string {
+  if (!url) return '';
+  if (url.startsWith('/uploads')) {
+    return `${API_BASE_URL}${url}`;
+  }
+  return url;
+}
+
+

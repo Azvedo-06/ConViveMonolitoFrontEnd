@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { cityOptions, applyCityTheme } from '../../theme/cityTheme';
 import { type CityFeedItem, type FeedCategory } from './cityFeedData';
 import { cityCategoryOptions, filterCityFeed } from './cityFeedUtils';
-import { backendFetch, backendRoutes, Role } from '../../services/backendRoutes';
+import { backendFetch, backendRoutes, Role, getImageUrl } from '../../services/backendRoutes';
 import { CityHeader } from './components/CityHeader';
 import { CreateEditEventModal } from './components/CreateEditEventModal';
 import { PaymentModal } from './components/PaymentModal';
@@ -13,7 +13,7 @@ import { useApp } from '../../context/AppContext';
 export function CityLandingScreen() {
   const { cityId } = useParams<{ cityId: string }>();
   const navigate = useNavigate();
-  const { user, cities, logout } = useApp();
+  const { user, cities, logout, loadingCities } = useApp();
 
   const [activeCategory, setActiveCategory] = useState<FeedCategory>('eventos');
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +32,22 @@ export function CityLandingScreen() {
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentEvent, setPaymentEvent] = useState<CityFeedItem | null>(null);
+
+  // Redirect to home if city does not exist (e.g. was deleted)
+  useEffect(() => {
+    if (!loadingCities && cityId) {
+      const cityExists =
+        cities.some((option) => option.id === cityId) ||
+        cityOptions.some((option) => option.id === cityId);
+
+      if (!cityExists) {
+        if (localStorage.getItem('last_city') === cityId) {
+          localStorage.removeItem('last_city');
+        }
+        navigate('/', { replace: true });
+      }
+    }
+  }, [loadingCities, cities, cityId, navigate]);
 
   // Apply theme when city changes
   useEffect(() => {
@@ -198,11 +214,11 @@ export function CityLandingScreen() {
         <div className="mx-auto w-full max-w-6xl">
           <div className="relative h-[38vh] min-h-[260px] w-full overflow-hidden rounded-2xl shadow-cityCard md:h-[52vh] md:min-h-[420px]">
             <img
-              src={selectedCity.imageUrl}
+              src={getImageUrl(selectedCity.imageUrl)}
               alt={`Vista da cidade de ${selectedCity.label}`}
               className="h-full w-full object-cover"
               onError={(event) => {
-                event.currentTarget.src = selectedCity.imageFallbackUrl;
+                event.currentTarget.src = getImageUrl(selectedCity.imageFallbackUrl);
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />

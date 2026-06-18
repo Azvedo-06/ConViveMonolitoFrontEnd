@@ -7,6 +7,7 @@ type AppContextType = {
   setUser: (user: UserResponseDto | null) => void;
   cities: CityConfig[];
   loadingUser: boolean;
+  loadingCities: boolean;
   fetchUserProfile: () => Promise<void>;
   fetchCities: () => Promise<void>;
   logout: () => void;
@@ -18,6 +19,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserResponseDto | null>(null);
   const [cities, setCities] = useState<CityConfig[]>([]);
   const [loadingUser, setLoadingUser] = useState(true);
+  const [loadingCities, setLoadingCities] = useState(true);
 
   const fetchUserProfile = useCallback(async () => {
     const token = localStorage.getItem('token');
@@ -39,12 +41,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchCities = useCallback(async () => {
+    setLoadingCities(true);
     try {
       const data = await backendFetch<CityConfig[]>(backendRoutes.cities);
       setCities(data);
     } catch (err) {
       console.error('Failed to fetch cities, using static config fallback:', err);
       setCities(cityOptions);
+    } finally {
+      setLoadingCities(false);
     }
   }, []);
 
@@ -68,6 +73,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setUser,
         cities,
         loadingUser,
+        loadingCities,
         fetchUserProfile,
         fetchCities,
         logout,

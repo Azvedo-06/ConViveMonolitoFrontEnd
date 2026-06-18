@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cityOptions } from '../../theme/cityTheme';
-import { backendFetch, backendRoutes } from '../../services/backendRoutes';
+import { backendFetch, backendRoutes, getImageUrl } from '../../services/backendRoutes';
 import { useApp } from '../../context/AppContext';
 
 export function LoginScreen() {
@@ -171,11 +171,11 @@ export function LoginScreen() {
             <div className="grid md:grid-cols-[1.05fr_1fr]">
               <div className="relative min-h-[240px] md:min-h-[560px]">
                 <img
-                  src={selectedCity.imageUrl}
+                  src={getImageUrl(selectedCity.imageUrl)}
                   alt={`Paisagem da cidade de ${selectedCity.label}`}
                   className="h-full w-full object-cover"
                   onError={(event) => {
-                    event.currentTarget.src = selectedCity.imageFallbackUrl;
+                    event.currentTarget.src = getImageUrl(selectedCity.imageFallbackUrl);
                   }}
                   data-testid="login-city-image"
                 />
