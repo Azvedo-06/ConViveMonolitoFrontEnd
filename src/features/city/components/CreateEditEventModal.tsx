@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { type CityTheme } from '../../../theme/cityTheme';
 import { type CityFeedItem, type FeedCategory } from '../cityFeedData';
-import { backendFetch } from '../../../services/backendRoutes';
+import { backendFetch, getImageUrl } from '../../../services/backendRoutes';
 
 type CreateEditEventModalProps = {
   city: CityTheme;
@@ -24,6 +24,8 @@ export function CreateEditEventModal({
   const [formType, setFormType] = useState<'COMMUNITY' | 'PRIVATE'>('COMMUNITY');
   const [formPrice, setFormPrice] = useState('');
   const [formMaxParticipants, setFormMaxParticipants] = useState('');
+  const [formFile, setFormFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -44,6 +46,8 @@ export function CreateEditEventModal({
       setFormType(editingEvent.type || 'COMMUNITY');
       setFormPrice(editingEvent.price ? String(editingEvent.price) : '');
       setFormMaxParticipants(editingEvent.capacity ? String(editingEvent.capacity) : '');
+      setPreviewUrl(editingEvent.imageUrl ? getImageUrl(editingEvent.imageUrl) : '');
+      setFormFile(null);
     } else {
       setFormTitle('');
       setFormDescription('');
@@ -53,6 +57,8 @@ export function CreateEditEventModal({
       setFormType('COMMUNITY');
       setFormPrice('');
       setFormMaxParticipants('');
+      setPreviewUrl('');
+      setFormFile(null);
     }
     setFormError('');
   }, [editingEvent]);
@@ -77,22 +83,40 @@ export function CreateEditEventModal({
       price: formType === 'PRIVATE' ? Number(formPrice) : null,
       maxParticipants: formType === 'PRIVATE' && formMaxParticipants ? Number(formMaxParticipants) : null,
       city: city,
+      imageUrl: editingEvent?.imageUrl || null,
     };
-
+  
     try {
+      let savedEventData: any;
       if (editingEvent) {
         const response = await backendFetch<any>(`/events/${editingEvent.id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
         });
-        onSuccess(response.data || response, true);
+        savedEventData = response.data || response;
       } else {
         const response = await backendFetch<any>('/events', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-        onSuccess(response.data || response, false);
+        savedEventData = response.data || response;
       }
+  
+      if (formFile) {
+        const formData = new FormData();
+        formData.append('image', formFile);
+        const uploadResponse = await backendFetch<any>(`/events/${savedEventData.id}/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+        const uploadData = uploadResponse.data || uploadResponse;
+        savedEventData = {
+          ...savedEventData,
+          imageUrl: uploadData.imageUrl,
+        };
+      }
+  
+      onSuccess(savedEventData, !!editingEvent);
     } catch (err: any) {
       setFormError(err.message || 'Erro ao salvar o conteúdo.');
     } finally {
@@ -209,6 +233,40 @@ export function CreateEditEventModal({
                 onChange={(e) => setFormLocation(e.target.value)}
                 className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
                 placeholder="Ex: Auditório Principal"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text/85 mb-1.5">Foto do Curso/Evento</label>
+            <div className="flex flex-col items-center justify-center border-2 border-dashed border-brand-primary/20 rounded-2xl p-4 bg-surface/50 hover:bg-surface transition-colors cursor-pointer relative group">
+              {previewUrl ? (
+                <div className="relative w-full h-32 overflow-hidden rounded-xl">
+                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
+                    <span className="text-white text-xs font-semibold">Alterar Imagem</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-2 text-center">
+                  <svg className="h-8 w-8 text-brand-primary/50 mb-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-xs font-semibold text-brand-primary">Escolher imagem do seu computador</span>
+                  <span className="text-[10px] text-text/60 mt-1">PNG, JPG, JPEG até 5MB</span>
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setFormFile(file);
+                  if (file) {
+                    setPreviewUrl(URL.createObjectURL(file));
+                  }
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
             </div>
           </div>

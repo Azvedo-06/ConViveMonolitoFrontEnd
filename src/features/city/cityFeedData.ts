@@ -29,6 +29,7 @@ export type CityFeedItem = {
   linkedin?: string;
   instagram?: string;
   youtube?: string;
+  imageUrl?: string;
 };
 
 export const cityFeedData: CityFeedItem[] = [];

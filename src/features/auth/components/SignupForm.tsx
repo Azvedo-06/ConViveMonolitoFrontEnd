@@ -8,6 +8,7 @@ import {
   formatCep,
   isValidCpf,
   isValidCnpj,
+  formatCpfOrCnpj,
 } from '../../../utils/validation';
 import { getImageUrl } from '../../../services/backendRoutes';
 
@@ -33,7 +34,7 @@ export function SignupForm({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [cpf, setCpf] = useState('');
-  const [cnpj, setCnpj] = useState('');
+  const [cpfOrCnpj, setCpfOrCnpj] = useState('');
   const [cep, setCep] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -41,25 +42,43 @@ export function SignupForm({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    const cleanCpf = cpf.replace(/\D/g, '');
     const cleanPhone = phone.replace(/\D/g, '');
-    const cleanCnpj = cnpj.replace(/\D/g, '');
     const cleanCep = cep.replace(/\D/g, '');
-
-    if (!name || !email || !cleanCpf || !cleanPhone || !password) {
-      setError('Por favor, preencha todos os campos.');
-      return;
-    }
-
-    if (!isValidCpf(cleanCpf)) {
-      setError('Por favor, insira um CPF válido com 11 dígitos.');
-      return;
-    }
-
     const isOrganizer = signupType === 'organizer';
-    if (isOrganizer && cleanCnpj && !isValidCnpj(cleanCnpj)) {
-      setError('Por favor, insira um CNPJ válido com 14 dígitos.');
-      return;
+
+    let finalCpf = '';
+    let finalCnpj = '';
+
+    if (isOrganizer) {
+      const cleanCpfOrCnpj = cpfOrCnpj.replace(/\D/g, '');
+      if (!name || !email || !cleanCpfOrCnpj || !cleanPhone || !password) {
+        setError('Por favor, preencha todos os campos obrigatórios.');
+        return;
+      }
+      if (cleanCpfOrCnpj.length <= 11) {
+        if (!isValidCpf(cleanCpfOrCnpj)) {
+          setError('Por favor, insira um CPF válido com 11 dígitos.');
+          return;
+        }
+        finalCpf = cleanCpfOrCnpj;
+      } else {
+        if (!isValidCnpj(cleanCpfOrCnpj)) {
+          setError('Por favor, insira um CNPJ válido com 14 dígitos.');
+          return;
+        }
+        finalCnpj = cleanCpfOrCnpj;
+      }
+    } else {
+      const cleanCpf = cpf.replace(/\D/g, '');
+      if (!name || !email || !cleanCpf || !cleanPhone || !password) {
+        setError('Por favor, preencha todos os campos obrigatórios.');
+        return;
+      }
+      if (!isValidCpf(cleanCpf)) {
+        setError('Por favor, insira um CPF válido com 11 dígitos.');
+        return;
+      }
+      finalCpf = cleanCpf;
     }
 
     if (cleanPhone.length < 10 || cleanPhone.length > 11) {
@@ -81,8 +100,8 @@ export function SignupForm({
     onSubmit({
       name,
       email,
-      cpf: cleanCpf,
-      cnpj: isOrganizer ? cleanCnpj : undefined,
+      cpf: finalCpf || undefined,
+      cnpj: finalCnpj || undefined,
       cep: cleanCep || undefined,
       phone: cleanPhone,
       password,
@@ -106,18 +125,34 @@ export function SignupForm({
       </label>
 
       <div className="grid grid-cols-2 gap-4">
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-text/85">CPF</span>
-          <input
-            type="text"
-            placeholder="123.456.789-10"
-            maxLength={14}
-            className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
-            value={cpf}
-            onChange={(e) => setCpf(formatCpf(e.target.value))}
-            required
-          />
-        </label>
+        {signupType === 'organizer' ? (
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-text/85">CPF ou CNPJ</span>
+            <input
+              type="text"
+              placeholder="CPF ou CNPJ"
+              maxLength={18}
+              className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+              value={cpfOrCnpj}
+              onChange={(e) => setCpfOrCnpj(formatCpfOrCnpj(e.target.value))}
+              required
+              data-testid="signup-organizer-cpf-cnpj-input"
+            />
+          </label>
+        ) : (
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-text/85">CPF</span>
+            <input
+              type="text"
+              placeholder="123.456.789-10"
+              maxLength={14}
+              className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+              value={cpf}
+              onChange={(e) => setCpf(formatCpf(e.target.value))}
+              required
+            />
+          </label>
+        )}
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-text/85">Telefone</span>
@@ -133,47 +168,17 @@ export function SignupForm({
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {signupType === 'organizer' ? (
-          <>
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium text-text/85">CNPJ (opcional)</span>
-              <input
-                type="text"
-                placeholder="12.345.678/0001-90"
-                maxLength={18}
-                className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
-                value={cnpj}
-                onChange={(e) => setCnpj(formatCnpj(e.target.value))}
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium text-text/85">CEP</span>
-              <input
-                type="text"
-                placeholder="12345-678"
-                maxLength={9}
-                className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
-                value={cep}
-                onChange={(e) => setCep(formatCep(e.target.value))}
-              />
-            </label>
-          </>
-        ) : (
-          <label className="block col-span-2">
-            <span className="mb-1 block text-sm font-medium text-text/85">CEP</span>
-            <input
-              type="text"
-              placeholder="12345-678"
-              maxLength={9}
-              className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
-              value={cep}
-              onChange={(e) => setCep(formatCep(e.target.value))}
-            />
-          </label>
-        )}
-      </div>
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium text-text/85">CEP</span>
+        <input
+          type="text"
+          placeholder="12345-678"
+          maxLength={9}
+          className="w-full rounded-md border border-brand-primary/25 bg-white px-3 py-2.5 text-sm text-text placeholder:text-text/45 outline-none transition focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+          value={cep}
+          onChange={(e) => setCep(formatCep(e.target.value))}
+        />
+      </label>
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-text/85">E-mail</span>

@@ -94,3 +94,11 @@ export function formatCep(val: string): string {
   if (digits.length > 5) masked += '-' + digits.slice(5, 8);
   return masked;
 }
+
+export function formatCpfOrCnpj(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 14);
+  if (digits.length <= 11) {
+    return formatCpf(digits);
+  }
+  return formatCnpj(digits);
+}
