@@ -30,6 +30,8 @@ export type CityFeedItem = {
   instagram?: string;
   youtube?: string;
   imageUrl?: string;
+  exposureLevel?: 'NONE' | 'CITY' | 'STATE' | 'COUNTRY';
+  promotionUntil?: string | null;
 };
 
 export const cityFeedData: CityFeedItem[] = [];

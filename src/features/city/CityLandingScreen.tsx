@@ -112,6 +112,8 @@ export function CityLandingScreen() {
         price: event.price,
         type: event.type,
         imageUrl: event.imageUrl,
+        exposureLevel: event.exposureLevel,
+        promotionUntil: event.promotionUntil,
       }));
       setLiveEvents(mappedEvents);
     } catch (err) {
@@ -122,6 +124,21 @@ export function CityLandingScreen() {
   useEffect(() => {
     loadEvents();
   }, [cityId]);
+
+  // Handle auto-opening event modal from highlightEvent URL parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const highlightId = params.get('highlightEvent');
+    if (highlightId && liveEvents.length > 0) {
+      const found = liveEvents.find((e) => e.id === highlightId);
+      if (found) {
+        setSelectedItem(found);
+        // Clear the query param
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [liveEvents]);
 
   const cityFeed = useMemo(() => {
     if (!cityId) return [];
@@ -306,8 +323,8 @@ export function CityLandingScreen() {
                     onClick={() => handleCategoryChange(category.id)}
                     className={`rounded-full border px-4 py-2 text-xs font-semibold tracking-wide transition md:text-sm ${
                       activeCategory === category.id
-                        ? 'border-brand-primary bg-brand-primary text-white'
-                        : 'border-brand-primary/25 text-brand-primary hover:bg-brand-primary/10'
+                        ? 'border-brand-primary bg-brand-primary text-brand-contrast'
+                        : 'border-brand-primary/25 text-brand-primary hover:bg-brand-secondary hover:text-brand-contrast hover:border-brand-secondary'
                     }`}
                     data-testid={`city-category-${category.id}`}
                   >
@@ -321,7 +338,7 @@ export function CityLandingScreen() {
                       setEditingEvent(null);
                       setShowCreateEditModal(true);
                     }}
-                    className="ml-2 rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110 md:text-sm"
+                    className="ml-2 rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-brand-contrast transition hover:bg-brand-secondary md:text-sm"
                     data-testid="city-create-event-button"
                   >
                     + Criar Conteúdo
@@ -422,7 +439,7 @@ export function CityLandingScreen() {
                     <button
                       type="button"
                       onClick={() => setSelectedItem(item)}
-                      className="mt-4 w-full rounded-xl bg-brand-primary/5 py-2.5 text-xs font-semibold text-brand-primary transition-all duration-200 hover:bg-brand-primary hover:text-white"
+                      className="mt-4 w-full rounded-xl bg-brand-primary/5 py-2.5 text-xs font-semibold text-brand-primary transition-all duration-200 hover:bg-brand-secondary hover:text-brand-contrast"
                       data-testid={`city-feed-details-button-${item.id}`}
                     >
                       {item.ctaLabel ?? (item.access === 'pago' ? 'Reservar ingresso' : 'Ver detalhes')}

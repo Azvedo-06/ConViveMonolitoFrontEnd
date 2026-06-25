@@ -37,6 +37,10 @@ export const backendRoutes = {
   joinEvent: (id: string | number) => `/events/${id}/join`,
   uploadEventImage: (id: string | number) => `/events/${id}/upload`,
   eventMessages: (id: string | number) => `/events/${id}/messages`,
+  promoteEvent: (id: string | number) => `/events/${id}/promote`,
+  promotedEvents: '/events/promoted',
+  checkoutPromotion: '/payments/checkout-promotion',
+  checkoutSession: '/payments/checkout-session',
 } as const;
 
 export async function backendFetch<T>(

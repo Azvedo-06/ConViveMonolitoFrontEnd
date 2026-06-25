@@ -34,6 +34,12 @@ export function EventDetailsModal({
   const [viewingProfile, setViewingProfile] = useState<any | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinMessage, setJoinMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isPromoting, setIsPromoting] = useState<string | null>(null);
+  const [promotionError, setPromotionError] = useState('');
+  const [localPromotion, setLocalPromotion] = useState<{
+    exposureLevel?: 'NONE' | 'CITY' | 'STATE' | 'COUNTRY';
+    promotionUntil?: string | null;
+  }>({});
 
   const isUserCreator = useMemo(() => {
     return !!(user && String(selectedItem.createdBy) === String(user.id));
@@ -215,6 +221,42 @@ export function EventDetailsModal({
       onDeleteSuccess(eventId);
     } catch (err: any) {
       alert(err.message || 'Erro ao excluir o evento');
+    }
+  }
+
+  async function handlePromoteEvent(level: 'CITY' | 'STATE' | 'COUNTRY') {
+    setIsPromoting(level);
+    setPromotionError('');
+    try {
+      if (isUserAdmin) {
+        const response = await backendFetch<any>(backendRoutes.promoteEvent(selectedItem.id), {
+          method: 'POST',
+          body: JSON.stringify({ exposureLevel: level }),
+        });
+        setLocalPromotion({
+          exposureLevel: response.data.exposureLevel,
+          promotionUntil: response.data.promotionUntil,
+        });
+        alert('Evento promovido com sucesso (Destaque Admin Gratuito)!');
+        onJoinSuccess();
+        setIsPromoting(null);
+      } else {
+        const response = await backendFetch<{ url: string }>(backendRoutes.checkoutPromotion, {
+          method: 'POST',
+          body: JSON.stringify({
+            eventId: Number(selectedItem.id),
+            exposureLevel: level,
+          }),
+        });
+        if (response.url) {
+          window.location.href = response.url;
+        } else {
+          throw new Error('URL de pagamento não retornada pelo servidor.');
+        }
+      }
+    } catch (err: any) {
+      setPromotionError(err.message || 'Erro ao iniciar o processo de promoção.');
+      setIsPromoting(null);
     }
   }
 
@@ -485,6 +527,79 @@ export function EventDetailsModal({
                   </div>
                 ) : null}
               </dl>
+
+              {(isUserCreator || isUserAdmin) && (() => {
+                const currentExposureLevel = localPromotion.exposureLevel || selectedItem.exposureLevel;
+                const currentPromotionUntil = localPromotion.promotionUntil || selectedItem.promotionUntil;
+                const isPromotionActive = currentExposureLevel && currentExposureLevel !== 'NONE' && currentPromotionUntil && new Date(currentPromotionUntil) > new Date();
+
+                return (
+                  <div className="mt-6 border-t border-brand-primary/10 pt-4 animate-fadeIn">
+                    <h4 className="text-sm font-bold text-brand-primary mb-2.5">
+                      Promover Evento {isUserAdmin ? '(Destaque Admin Grátis)' : '(Destaque Pago)'}
+                    </h4>
+
+                    {isPromotionActive ? (
+                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 font-semibold flex items-center gap-2">
+                        <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                        <span>
+                          Destaque ativo no nível{' '}
+                          <strong>
+                            {currentExposureLevel === 'CITY'
+                              ? 'Municipal (Cidade)'
+                              : currentExposureLevel === 'STATE'
+                              ? 'Regional (Estado)'
+                              : 'Nacional (País)'}
+                          </strong>{' '}
+                          até {new Date(currentPromotionUntil!).toLocaleDateString('pt-BR')}.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-xs text-text/70 mb-3">
+                          {isUserAdmin
+                            ? 'Como Administrador, você pode destacar este evento de graça no feed regional ou nacional:'
+                            : 'Deixe seu evento mais exposto. Selecione um dos planos abaixo para destacar por 30 dias:'}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2.5">
+                          {[
+                            { level: 'CITY', label: 'Cidade', price: isUserAdmin ? 'Grátis' : 'R$ 20' },
+                            { level: 'STATE', label: 'Estado', price: isUserAdmin ? 'Grátis' : 'R$ 50' },
+                            { level: 'COUNTRY', label: 'País', price: isUserAdmin ? 'Grátis' : 'R$ 100' },
+                          ].map((plan) => (
+                            <button
+                              key={plan.level}
+                              type="button"
+                              disabled={isPromoting !== null}
+                              onClick={() => handlePromoteEvent(plan.level as any)}
+                              className="flex flex-col items-center justify-center border border-brand-primary/20 hover:border-brand-primary bg-white hover:bg-brand-primary/5 py-2.5 rounded-xl transition duration-200 group text-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <span className="text-[10px] font-bold text-text/60 group-hover:text-brand-primary uppercase tracking-wider">
+                                {plan.label}
+                              </span>
+                              <span className="text-sm font-bold text-brand-primary mt-1">
+                                {plan.price}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        {isPromoting && (
+                          <div className="text-[10px] font-bold text-brand-primary/80 animate-pulse flex items-center gap-1">
+                            <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            {isUserAdmin ? 'Ativando destaque gratuito...' : `Redirecionando para o Stripe Checkout (plano ${isPromoting})...`}
+                          </div>
+                        )}
+                        {promotionError && (
+                          <p className="text-[11px] text-red-500 font-medium">{promotionError}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="shrink-0 border-t border-brand-primary/10 p-4">
@@ -523,7 +638,7 @@ export function EventDetailsModal({
                   </svg>
                   <span>Inscrição Confirmada!</span>
                 </button>
-              ) : (isUserCreator || isUserAdmin) ? (
+              ) : isUserCreator ? (
                 <div className="text-center text-xs font-semibold text-brand-primary py-2.5 bg-brand-primary/10 rounded-lg">
                   Você é o organizador deste evento
                 </div>
@@ -531,7 +646,7 @@ export function EventDetailsModal({
                 <button
                   type="button"
                   onClick={() => {
-                    if (selectedItem.access === 'pago') {
+                    if (selectedItem.access === 'pago' && !isUserAdmin) {
                       onStartPayment(selectedItem);
                     } else {
                       handleJoinEvent(selectedItem.id);
@@ -541,7 +656,7 @@ export function EventDetailsModal({
                   className="w-full rounded-lg bg-brand-primary px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-70 disabled:cursor-not-allowed"
                   data-testid="city-feed-details-cta"
                 >
-                  {isJoining ? 'Processando...' : (selectedItem.ctaLabel ?? (selectedItem.access === 'pago' ? 'Reservar ingresso' : 'Participar'))}
+                  {isJoining ? 'Processando...' : (selectedItem.ctaLabel ?? (selectedItem.access === 'pago' ? (isUserAdmin ? 'Participar (Admin Grátis)' : 'Reservar ingresso') : 'Participar'))}
                 </button>
               )}
             </div>

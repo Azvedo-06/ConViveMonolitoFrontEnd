@@ -1,13 +1,28 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { applyCityTheme, cityOptions, type CityTheme, type CityConfig } from '../../theme/cityTheme';
 import { backendFetch, backendRoutes, getImageUrl } from '../../services/backendRoutes';
 import { useApp } from '../../context/AppContext';
 import { AddEditCityModal } from './components/AddEditCityModal';
+import { CitySearchBar } from './components/CitySearchBar';
+import { CityListItem } from './components/CityListItem';
+import { CityPreviewCard } from './components/CityPreviewCard';
 
 const onboardingBackgroundUrl = '/images/cidades-onboarding-fundo.jpg';
 const onboardingBackgroundFallbackUrl =
   'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1680&q=80';
+
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 export function CityOnboardingScreen() {
   const navigate = useNavigate();
@@ -17,8 +32,80 @@ export function CityOnboardingScreen() {
     return cities.length > 0 ? cities : cityOptions;
   }, [cities]);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserCoords({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.log('Error getting user geolocation or permission denied:', error);
+        },
+        { timeout: 10000 }
+      );
+    }
+  }, []);
+
+  const processedCities = useMemo(() => {
+    let result = cards.filter((city) =>
+      city.label.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    if (userCoords) {
+      result = [...result].sort((a, b) => {
+        const hasA = a.latitude !== undefined && a.longitude !== undefined;
+        const hasB = b.latitude !== undefined && b.longitude !== undefined;
+
+        if (hasA && hasB) {
+          const distA = getDistance(userCoords.latitude, userCoords.longitude, a.latitude!, a.longitude!);
+          const distB = getDistance(userCoords.latitude, userCoords.longitude, b.latitude!, b.longitude!);
+          return distA - distB;
+        }
+
+        if (hasA) return -1;
+        if (hasB) return 1;
+
+        return a.label.localeCompare(b.label);
+      });
+    } else {
+      result = [...result].sort((a, b) => a.label.localeCompare(b.label));
+    }
+
+    return result;
+  }, [cards, searchQuery, userCoords]);
+
+  const [promotedEvents, setPromotedEvents] = useState<any[]>([]);
+
+  const userState = useMemo(() => {
+    return processedCities[0]?.state || 'PR';
+  }, [processedCities]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPromotions = async () => {
+      try {
+        const data = await backendFetch<any[]>(`${backendRoutes.promotedEvents}?state=${userState}`);
+        if (isMounted) {
+          setPromotedEvents(data);
+        }
+      } catch (err) {
+        console.error('Error fetching promoted events:', err);
+      }
+    };
+    fetchPromotions();
+    return () => {
+      isMounted = false;
+    };
+  }, [userState]);
+
   const [selectedCity, setSelectedCity] = useState<CityTheme | null>(null);
-  const [hoveredCityId, setHoveredCityId] = useState<CityTheme | null>(cards[0]?.id ?? null);
+  const [hoveredCityId, setHoveredCityId] = useState<CityTheme | null>(null);
 
   // Admin Modal state
   const [showAddCityModal, setShowAddCityModal] = useState(false);
@@ -26,7 +113,7 @@ export function CityOnboardingScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const previewCity = cards.find((city) => city.id === hoveredCityId) ?? cards[0] ?? null;
+  const previewCity = processedCities.find((city) => city.id === hoveredCityId) ?? processedCities[0] ?? null;
 
   function handleSelectCity(cityId: CityTheme) {
     setSelectedCity(cityId);
@@ -131,79 +218,36 @@ export function CityOnboardingScreen() {
               </div>
 
               <div className="space-y-3">
-                {cards.map((city) => {
-                  const isActive = previewCity?.id === city.id;
+                <CitySearchBar value={searchQuery} onChange={setSearchQuery} />
 
-                  return (
-                    <div
+                {userCoords && (
+                  <div className="flex items-center gap-1.5 px-1 py-0.5 text-xs font-bold text-brand-primary/95 animate-fadeIn">
+                    <svg className="h-4 w-4 text-brand-primary/80 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Cidades ordenadas por proximidade</span>
+                  </div>
+                )}
+
+                {processedCities.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-brand-primary/25 bg-brand-primary/5 p-6 text-center text-sm font-medium text-text/70 animate-fadeIn">
+                    Nenhuma cidade encontrada para "{searchQuery}".
+                  </div>
+                ) : (
+                  processedCities.map((city) => (
+                    <CityListItem
                       key={city.id}
-                      className={`group relative w-full rounded-xl border border-brand-primary/20 bg-white transition duration-300 ${isActive ? 'border-brand-primary/30 bg-brand-primary/5 shadow-[0_10px_30px_rgba(0,0,0,0.1)]' : 'hover:border-brand-primary/40 hover:bg-brand-primary/5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)]'}`}
-                    >
-                      <button
-                        type="button"
-                        onMouseEnter={() => setHoveredCityId(city.id)}
-                        onFocus={() => setHoveredCityId(city.id)}
-                        onTouchStart={() => setHoveredCityId(city.id)}
-                        onClick={() => handleSelectCity(city.id)}
-                        data-testid={`city-onboarding-card-${city.id}`}
-                        className="w-full text-left px-6 py-4 focus:outline-none rounded-xl"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div
-                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white"
-                            style={{ backgroundColor: `rgb(${city.colorPrimary || '46 125 50'})` }}
-                          >
-                            {city.label.slice(0, 1)}
-                          </div>
-
-                          <div className="min-w-0 flex-1 pr-24">
-                            <h2 className="font-display text-2xl font-semibold text-text md:text-3xl">
-                              {city.label}
-                            </h2>
-                          </div>
-                        </div>
-
-                        <span
-                          className="mt-4 flex w-full items-center justify-center rounded-md px-5 py-3 text-sm font-semibold text-white lg:hidden"
-                          style={{ backgroundColor: `rgb(${city.colorPrimary || '46 125 50'})` }}
-                        >
-                          Abrir {city.label}
-                        </span>
-                      </button>
-
-                      {user?.role === 'ADMIN' && (
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2 z-20">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStartEditCity(city);
-                            }}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary transition hover:bg-brand-primary hover:text-white shadow-sm"
-                            title="Editar Cidade"
-                          >
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteCity(city.id);
-                            }}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-600 hover:text-white shadow-sm"
-                            title="Excluir Cidade"
-                          >
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      city={city}
+                      isActive={previewCity?.id === city.id}
+                      userCoords={userCoords}
+                      onMouseEnter={() => setHoveredCityId(city.id)}
+                      onClick={() => handleSelectCity(city.id)}
+                      isAdmin={user?.role === 'ADMIN'}
+                      onEdit={() => handleStartEditCity(city)}
+                      onDelete={() => handleDeleteCity(city.id)}
+                    />
+                  ))
+                )}
 
                 {user?.role === 'ADMIN' && (
                   <button
@@ -222,47 +266,73 @@ export function CityOnboardingScreen() {
             </div>
 
             <div className="hidden lg:block lg:sticky lg:top-8">
-              {previewCity ? (
-                <div className="overflow-hidden rounded-2xl border border-brand-primary/20 bg-white shadow-cityCard">
-                  <div className="relative h-[320px]">
-                    <img
-                      src={getImageUrl(previewCity.imageUrl)}
-                      alt={`Prévia visual da cidade de ${previewCity.label}`}
-                      className="h-full w-full object-cover"
-                      onError={(event) => {
-                        event.currentTarget.src = getImageUrl(previewCity.imageFallbackUrl);
-                      }}
-                    />
-                    <div
-                      className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-20"
-                      style={{ backgroundColor: `rgb(${previewCity.colorPrimary || '46 125 50'})` }}
-                    />
-
-                    <div className="absolute inset-x-0 bottom-0 p-6 text-white">
-                      <h3 className="mt-3 font-display text-4xl font-semibold md:text-5xl">
-                        {previewCity.label}
-                      </h3>
-                      <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/95 md:text-base">
-                        {previewCity.spotlight}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-5 p-6">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectCity(previewCity.id)}
-                      className="w-full rounded-md px-5 py-3 text-sm font-semibold text-white transition duration-300 hover:brightness-110"
-                      style={{ backgroundColor: `rgb(${previewCity.colorPrimary || '46 125 50'})` }}
-                      data-testid={`city-onboarding-open-${previewCity.id}`}
-                    >
-                      Abrir {previewCity.label}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
+              <CityPreviewCard previewCity={previewCity} onSelect={handleSelectCity} />
             </div>
           </div>
+
+          {promotedEvents.length > 0 && (
+            <div className="mt-16 w-full animate-fadeIn">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-text sm:text-2xl flex items-center gap-2">
+                    <span className="flex h-2.5 w-2.5 rounded-full bg-orange-500 animate-pulse" />
+                    Eventos em Destaque na Região
+                  </h3>
+                  <p className="text-sm text-text/70 mt-1">
+                    Eventos recomendados no estado de {userState} e em todo o país
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-brand-primary/20 scrollbar-track-transparent snap-x">
+                {promotedEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    onClick={() => {
+                      navigate(`/${event.city}?highlightEvent=${event.id}`);
+                    }}
+                    className="min-w-[280px] sm:min-w-[320px] max-w-[320px] bg-white/70 backdrop-blur-md border border-white/40 hover:border-brand-primary/30 rounded-2xl p-5 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-1 snap-start flex flex-col justify-between"
+                  >
+                    <div>
+                      {event.imageUrl && (
+                        <img
+                          src={getImageUrl(event.imageUrl)}
+                          alt={event.title}
+                          className="w-full h-40 object-cover rounded-xl mb-4"
+                        />
+                      )}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-brand-primary/10 text-brand-primary">
+                          {event.exposureLevel === 'COUNTRY' ? 'Nacional' : 'Regional'}
+                        </span>
+                        <span className="text-xs text-text/50 font-medium">
+                          {new Date(event.date).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <h4 className="font-display font-semibold text-lg text-text line-clamp-1">
+                        {event.title}
+                      </h4>
+                      <p className="text-sm text-text/70 mt-1.5 line-clamp-2">
+                        {event.description}
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-text/5 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-brand-primary flex items-center gap-1">
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {event.cityDetails?.label || event.city}
+                      </span>
+                      <span className="text-xs font-bold text-text/80 hover:text-brand-primary transition">
+                        Ver detalhes &rarr;
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
