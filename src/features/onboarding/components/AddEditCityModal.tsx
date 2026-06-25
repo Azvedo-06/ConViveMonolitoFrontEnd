@@ -46,6 +46,8 @@ export function AddEditCityModal({
   const [colorPrimary, setColorPrimary] = useState('#2E7D32');
   const [colorSecondary, setColorSecondary] = useState('#66BB6A');
   const [cityTags, setCityTags] = useState('');
+  const [latitude, setLatitude] = useState<string>('');
+  const [longitude, setLongitude] = useState<string>('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
 
@@ -59,6 +61,8 @@ export function AddEditCityModal({
       setCityTags(editingCity.tags ? editingCity.tags.join(', ') : '');
       setColorPrimary(rgbChannelsToHex(editingCity.colorPrimary || '46 125 50'));
       setColorSecondary(rgbChannelsToHex(editingCity.colorSecondary || '102 187 106'));
+      setLatitude(editingCity.latitude !== undefined ? String(editingCity.latitude) : '');
+      setLongitude(editingCity.longitude !== undefined ? String(editingCity.longitude) : '');
     } else {
       setCityName('');
       setCitySpotlight('');
@@ -66,6 +70,8 @@ export function AddEditCityModal({
       setCityTags('');
       setColorPrimary('#2E7D32');
       setColorSecondary('#66BB6A');
+      setLatitude('');
+      setLongitude('');
     }
   }, [editingCity]);
 
@@ -99,6 +105,8 @@ export function AddEditCityModal({
       colorPrimary: primaryRGB,
       colorSecondary: secondaryRGB,
       tags: tagsArray,
+      latitude: latitude !== '' ? Number(latitude) : undefined,
+      longitude: longitude !== '' ? Number(longitude) : undefined,
     };
 
     await onSave(payload, imageFile);
@@ -219,6 +227,31 @@ export function AddEditCityModal({
                 }}
                 className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
                 placeholder="https://images.unsplash.com/..."
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-text/85 uppercase tracking-wider mb-1">Latitude</label>
+              <input
+                type="number"
+                step="any"
+                value={latitude}
+                onChange={(e) => setLatitude(e.target.value)}
+                className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+                placeholder="Ex: -24.0439"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-text/85 uppercase tracking-wider mb-1">Longitude</label>
+              <input
+                type="number"
+                step="any"
+                value={longitude}
+                onChange={(e) => setLongitude(e.target.value)}
+                className="w-full rounded-xl border border-brand-primary/25 bg-white px-3 py-2 text-sm text-text outline-none focus:border-brand-primary/55 focus:ring-2 focus:ring-brand-primary/20"
+                placeholder="Ex: -52.3781"
               />
             </div>
           </div>
