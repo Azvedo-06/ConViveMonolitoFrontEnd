@@ -12,6 +12,9 @@ export type CityConfig = {
   spotlight: string;
   colorPrimary?: string;
   colorSecondary?: string;
+  latitude?: number;
+  longitude?: number;
+  state?: string;
 };
 
 export const cityOptions: CityConfig[] = [
@@ -28,6 +31,9 @@ export const cityOptions: CityConfig[] = [
     spotlight: 'Boa para quem quer alcance maior e variedade de público.',
     colorPrimary: '46 125 50',
     colorSecondary: '102 187 106',
+    latitude: -24.0439,
+    longitude: -52.3781,
+    state: 'PR',
   },
   {
     id: 'mambore',
@@ -42,22 +48,44 @@ export const cityOptions: CityConfig[] = [
     spotlight: 'Boa para quem quer conversa mais próxima e comunicação local.',
     colorPrimary: '216 67 21',
     colorSecondary: '255 138 101',
+    latitude: -24.3197,
+    longitude: -52.7303,
+    state: 'PR',
   },
 ];
 
 export function applyCityTheme(themeOrCity: string | CityConfig) {
+  let primaryRgb = '46 125 50';
+  let secondaryRgb = '102 187 106';
+
   if (typeof themeOrCity === 'string') {
     document.documentElement.setAttribute('data-city-theme', themeOrCity);
     if (themeOrCity === 'campo-mourao') {
-      document.documentElement.style.setProperty('--color-primary', '46 125 50');
-      document.documentElement.style.setProperty('--color-secondary', '102 187 106');
+      primaryRgb = '46 125 50';
+      secondaryRgb = '102 187 106';
     } else if (themeOrCity === 'mambore') {
-      document.documentElement.style.setProperty('--color-primary', '216 67 21');
-      document.documentElement.style.setProperty('--color-secondary', '255 138 101');
+      primaryRgb = '216 67 21';
+      secondaryRgb = '255 138 101';
     }
   } else {
     document.documentElement.setAttribute('data-city-theme', themeOrCity.theme);
-    document.documentElement.style.setProperty('--color-primary', themeOrCity.colorPrimary || '46 125 50');
-    document.documentElement.style.setProperty('--color-secondary', themeOrCity.colorSecondary || '102 187 106');
+    primaryRgb = themeOrCity.colorPrimary || '46 125 50';
+    secondaryRgb = themeOrCity.colorSecondary || '102 187 106';
   }
+
+  // Parse RGB values to check relative luminance (WCAG Standard)
+  const rgbParts = primaryRgb.split(/\s+/).map(Number);
+  let contrastColor = '255 255 255'; // Default white contrast
+
+  if (rgbParts.length === 3 && !rgbParts.some(isNaN)) {
+    const [r, g, b] = rgbParts;
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    if (luminance > 0.65) {
+      contrastColor = '30 30 30'; // Dark text for bright backgrounds (e.g. yellow)
+    }
+  }
+
+  document.documentElement.style.setProperty('--color-primary', primaryRgb);
+  document.documentElement.style.setProperty('--color-secondary', secondaryRgb);
+  document.documentElement.style.setProperty('--color-primary-contrast', contrastColor);
 }

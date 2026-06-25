@@ -8,6 +8,7 @@ const config: Config = {
         brand: {
           primary: 'rgb(var(--color-primary) / <alpha-value>)',
           secondary: 'rgb(var(--color-secondary) / <alpha-value>)',
+          contrast: 'rgb(var(--color-primary-contrast) / <alpha-value>)',
         },
         city: {
           campoMourao: '#2E7D32',

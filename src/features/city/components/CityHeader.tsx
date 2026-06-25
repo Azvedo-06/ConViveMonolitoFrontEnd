@@ -56,7 +56,7 @@ export function CityHeader({
   }
 
   return (
-    <header className="relative z-20 bg-brand-primary text-white">
+    <header className="relative z-20 bg-brand-primary text-brand-contrast">
       <div className="flex items-center justify-between px-4 py-4 md:px-8 md:py-5">
         <button
           type="button"
@@ -65,14 +65,14 @@ export function CityHeader({
           data-testid="city-brand-button"
         >
           <span className="font-display text-lg font-bold tracking-wide">CONVIVE</span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85 md:text-[11px]">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-contrast/85 md:text-[11px]">
             {selectedCity.label}
           </span>
         </button>
 
         <div className="flex items-center gap-2 md:hidden" data-testid="city-brand-label">
           <span className="font-display text-lg font-bold tracking-wide">CONVIVE</span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-contrast/85">
             {selectedCity.label}
           </span>
         </div>
@@ -82,7 +82,7 @@ export function CityHeader({
             <button
               type="button"
               onClick={onOpenProfile}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-contrast/15 text-brand-contrast transition hover:bg-brand-contrast/25 focus:outline-none focus:ring-2 focus:ring-brand-contrast/50"
               title={user.name}
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -94,7 +94,7 @@ export function CityHeader({
           <button
             type="button"
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className="flex h-10 w-10 items-center justify-center rounded-md transition hover:bg-white/10"
+            className="flex h-10 w-10 items-center justify-center rounded-md transition hover:bg-brand-contrast/10"
             aria-expanded={mobileMenuOpen}
             aria-controls="city-mobile-menu"
             aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
@@ -118,7 +118,7 @@ export function CityHeader({
               <button
                 type="button"
                 onClick={onOpenProfile}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/50"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-contrast/15 text-brand-contrast transition hover:bg-brand-contrast/25 focus:outline-none focus:ring-2 focus:ring-brand-contrast/50"
                 title={user.name}
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -129,7 +129,7 @@ export function CityHeader({
               <button
                 type="button"
                 onClick={onLogout}
-                className="rounded px-3 py-1.5 transition hover:bg-white/10"
+                className="rounded px-3 py-1.5 transition hover:bg-brand-contrast/10"
                 data-testid="city-logout-button-desktop"
               >
                 SAIR
@@ -139,7 +139,7 @@ export function CityHeader({
             <button
               type="button"
               onClick={onLogin}
-              className="rounded px-3 py-1.5 transition hover:bg-white/10"
+              className="rounded px-3 py-1.5 transition hover:bg-brand-contrast/10"
               data-testid="city-login-button-desktop"
             >
               LOGIN
@@ -148,7 +148,7 @@ export function CityHeader({
           <button
             type="button"
             onClick={onBack}
-            className="rounded px-3 py-1.5 transition hover:bg-white/10"
+            className="rounded px-3 py-1.5 transition hover:bg-brand-contrast/10"
             data-testid="city-switch-button"
           >
             TROCAR CIDADE
@@ -167,7 +167,7 @@ export function CityHeader({
           />
           <nav
             id="city-mobile-menu"
-            className="relative z-20 border-t border-white/20 px-4 py-3 md:hidden"
+            className="relative z-20 border-t border-brand-contrast/20 px-4 py-3 md:hidden"
             data-testid="city-mobile-menu"
           >
             <ul className="space-y-1">
@@ -175,7 +175,7 @@ export function CityHeader({
                 <button
                   type="button"
                   onClick={handleMobileBack}
-                  className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-white/10"
+                  className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-brand-contrast/10"
                   data-testid="city-switch-button-mobile"
                 >
                   TROCAR CIDADE
@@ -189,7 +189,7 @@ export function CityHeader({
                       closeMobileMenu();
                       onLogout();
                     }}
-                    className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-white/10"
+                    className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-brand-contrast/10"
                     data-testid="city-logout-button-mobile"
                   >
                     SAIR
@@ -201,7 +201,7 @@ export function CityHeader({
                     <button
                       type="button"
                       onClick={handleMobileLogin}
-                      className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-white/10"
+                      className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-brand-contrast/10"
                       data-testid="city-login-button-mobile"
                     >
                       LOGIN
@@ -212,7 +212,7 @@ export function CityHeader({
                       <button
                         type="button"
                         onClick={handleMobileSignup}
-                        className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-white/10"
+                        className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-brand-contrast/10"
                         data-testid="city-signup-button-mobile"
                       >
                         CADASTRO
